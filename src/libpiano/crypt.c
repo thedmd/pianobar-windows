@@ -25,7 +25,11 @@ THE SOFTWARE.
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#ifdef _WIN32
+#include <winsock.h>
+#else
 #include <arpa/inet.h>
+#endif
 
 #include "crypt_key_output.h"
 #include "crypt_key_input.h"
@@ -84,7 +88,7 @@ unsigned char *PianoDecryptString (const unsigned char *strInput) {
 
 			for (j = in_key_n + 1; j > 1; --j) {
 				l ^= in_key_p [j];
-				
+
 				f = in_key_s [0][(l >> 24) & 0xff] +
 						in_key_s [1][(l >> 16) & 0xff];
 				f ^= in_key_s [2][(l >> 8) & 0xff];
@@ -148,9 +152,9 @@ unsigned char *PianoEncryptString (const unsigned char *strInput) {
 
 		l = hostToBigEndian32 (*blockPtr);
 		r = hostToBigEndian32 (*(blockPtr+1));
-		
+
 		/* encrypt blocks */
-		for (i = 0; i < out_key_n; i++) {
+		for (i = 0; i < (int)out_key_n; i++) {
 			l ^= out_key_p[i];
 
 			f = out_key_s[0][(l >> 24) & 0xff] +

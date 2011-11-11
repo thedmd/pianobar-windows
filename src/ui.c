@@ -35,22 +35,35 @@ THE SOFTWARE.
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include <strings.h>
+#include <string.h>
 #include <assert.h>
 #include <ctype.h> /* tolower() */
 
 /* waitpid () */
 #include <sys/types.h>
+#ifdef _WIN32
+#include <process.h>
+#else
 #include <sys/wait.h>
+#endif
+
+#ifdef _WIN32
+#define ui_ssize_t_spec  "%Id"
+#define ui_size_t_spec_2 "%2Iu"
+#else
+#define ui_ssize_t_spec  "%zd"
+#define ui_size_t_spec_2 "%2zu"
+#endif
 
 #include "ui.h"
 #include "ui_readline.h"
+#include "terminal.h"
 
 typedef int (*BarSortFunc_t) (const void *, const void *);
 
 /*	is string a number?
  */
-static bool isnumeric (const char *s) {
+static INLINE bool isnumeric (const char *s) {
 	if (*s == '\0') {
 		return false;
 	}
@@ -65,7 +78,7 @@ static bool isnumeric (const char *s) {
 
 /*	find needle in haystack, ignoring case, and return first position
  */
-static const char *BarStrCaseStr (const char *haystack, const char *needle) {
+static INLINE const char *BarStrCaseStr (const char *haystack, const char *needle) {
 	const char *needlePos = needle;
 
 	assert (haystack != NULL);
@@ -109,7 +122,11 @@ void BarUiMsg (const BarSettings_t *settings, const BarUiMsg_t type,
 		case MSG_QUESTION:
 		case MSG_LIST:
 			/* print ANSI clear line */
+#ifdef _WIN32
+			BarConsoleClearLineWin32 ();
+#else
 			fputs ("\033[2K", stdout);
+#endif
 			break;
 
 		default:
@@ -135,7 +152,7 @@ void BarUiMsg (const BarSettings_t *settings, const BarUiMsg_t type,
  *	@param waitress handle
  *	@param piano request (initialized by PianoRequest())
  */
-static WaitressReturn_t BarPianoHttpRequest (WaitressHandle_t *waith,
+static INLINE WaitressReturn_t BarPianoHttpRequest (WaitressHandle_t *waith,
 		PianoRequest_t *req) {
 	waith->extraHeaders = "Content-Type: text/xml\r\n";
 	waith->postData = req->postData;
@@ -234,7 +251,7 @@ int BarUiPianoCall (BarApp_t * const app, PianoRequestType_t type,
 
 /*	Station sorting functions */
 
-static inline int BarStationQuickmix01Cmp (const void *a, const void *b) {
+static int BarStationQuickmix01Cmp (const void *a, const void *b) {
 	const PianoStation_t *stationA = *((PianoStation_t **) a),
 			*stationB = *((PianoStation_t **) b);
 	return stationA->isQuickMix - stationB->isQuickMix;
@@ -242,10 +259,10 @@ static inline int BarStationQuickmix01Cmp (const void *a, const void *b) {
 
 /*	sort by station name from a to z, case insensitive
  */
-static inline int BarStationNameAZCmp (const void *a, const void *b) {
+static int BarStationNameAZCmp (const void *a, const void *b) {
 	const PianoStation_t *stationA = *((PianoStation_t **) a),
 			*stationB = *((PianoStation_t **) b);
-	return strcasecmp (stationA->name, stationB->name);
+	return bar_strcasecmp (stationA->name, stationB->name);
 }
 
 /*	sort by station name from z to a, case insensitive
@@ -256,7 +273,7 @@ static int BarStationNameZACmp (const void *a, const void *b) {
 
 /*	helper for quickmix/name sorting
  */
-static inline int BarStationQuickmixNameCmp (const void *a, const void *b,
+static int BarStationQuickmixNameCmp (const void *a, const void *b,
 		const void *c, const void *d) {
 	int qmc = BarStationQuickmix01Cmp (a, b);
 	return qmc == 0 ? BarStationNameAZCmp (c, d) : qmc;
@@ -290,7 +307,7 @@ static int BarStationCmpQuickmix10NameZA (const void *a, const void *b) {
  *	@param stations
  *	@return NULL-terminated array with sorted stations
  */
-static PianoStation_t **BarSortedStations (PianoStation_t *unsortedStations,
+static INLINE PianoStation_t **BarSortedStations (PianoStation_t *unsortedStations,
 		size_t *retStationCount, BarStationSorting_t order) {
 	static const BarSortFunc_t orderMapping[] = {BarStationNameAZCmp,
 			BarStationNameZACmp,
@@ -522,13 +539,13 @@ char *BarUiSelectMusicId (BarApp_t *app, PianoStation_t *station,
 			if (*selectBuf == 'a') {
 				tmpArtist = BarUiSelectArtist (app, searchResult.artists);
 				if (tmpArtist != NULL) {
-					musicId = strdup (tmpArtist->musicId);
+					musicId = bar_strdup (tmpArtist->musicId);
 				}
 			} else if (*selectBuf == 't') {
 				tmpSong = BarUiSelectSong (&app->settings, searchResult.songs,
 						&app->input);
 				if (tmpSong != NULL) {
-					musicId = strdup (tmpSong->musicId);
+					musicId = bar_strdup (tmpSong->musicId);
 				}
 			}
 		} else if (searchResult.songs != NULL) {
@@ -536,13 +553,13 @@ char *BarUiSelectMusicId (BarApp_t *app, PianoStation_t *station,
 			tmpSong = BarUiSelectSong (&app->settings, searchResult.songs,
 					&app->input);
 			if (tmpSong != NULL) {
-				musicId = strdup (tmpSong->musicId);
+				musicId = bar_strdup (tmpSong->musicId);
 			}
 		} else if (searchResult.artists != NULL) {
 			/* artists found */
 			tmpArtist = BarUiSelectArtist (app, searchResult.artists);
 			if (tmpArtist != NULL) {
-				musicId = strdup (tmpArtist->musicId);
+				musicId = bar_strdup (tmpArtist->musicId);
 			}
 		} else {
 			BarUiMsg (&app->settings, MSG_INFO, "Nothing found...\n");
@@ -594,7 +611,7 @@ void BarStationFromGenre (BarApp_t *app) {
 		curCat = curCat->next;
 		i--;
 	}
-	
+
 	/* print all available stations */
 	curGenre = curCat->genres;
 	i = 0;
@@ -680,7 +697,7 @@ void BarUiCustomFormat (char *dest, size_t destSize, const char *format,
 
 /*	append \n to string
  */
-static void BarUiAppendNewline (char *s, size_t maxlen) {
+static INLINE void BarUiAppendNewline (char *s, size_t maxlen) {
 	size_t len;
 
 	/* append \n */
@@ -696,7 +713,7 @@ static void BarUiAppendNewline (char *s, size_t maxlen) {
  *	@param pianobar settings
  *	@param the station
  */
-inline void BarUiPrintStation (const BarSettings_t *settings,
+void BarUiPrintStation (const BarSettings_t *settings,
 		PianoStation_t *station) {
 	char outstr[512];
 	const char *vals[] = {station->name, station->id};
@@ -712,7 +729,7 @@ inline void BarUiPrintStation (const BarSettings_t *settings,
  *	@param the song
  *	@param alternative station info (show real station for quickmix, e.g.)
  */
-inline void BarUiPrintSong (const BarSettings_t *settings,
+void BarUiPrintSong (const BarSettings_t *settings,
 		const PianoSong_t *song, const PianoStation_t *station) {
 	char outstr[512];
 	const char *vals[] = {song->title, song->artist, song->album,
@@ -747,7 +764,7 @@ size_t BarUiListSongs (const BarSettings_t *settings,
 					(song->rating == PIANO_RATE_LOVE) ? settings->loveIcon :
 					((song->rating == PIANO_RATE_BAN) ? settings->banIcon : "")};
 
-			snprintf (digits, sizeof (digits) / sizeof (*digits), "%2zu", i);
+			bar_snprintf (digits, sizeof (digits) / sizeof (*digits), ui_size_t_spec_2, i);
 			BarUiCustomFormat (outstr, sizeof (outstr), settings->listSongFormat,
 					"iatr", vals);
 			BarUiAppendNewline (outstr, sizeof (outstr));
@@ -771,7 +788,11 @@ size_t BarUiListSongs (const BarSettings_t *settings,
 void BarUiStartEventCmd (const BarSettings_t *settings, const char *type,
 		const PianoStation_t *curStation, const PianoSong_t *curSong,
 		const struct audioPlayer *player, PianoStation_t *stations,
-                PianoReturn_t pRet, WaitressReturn_t wRet) {
+		PianoReturn_t pRet, WaitressReturn_t wRet) {
+
+#ifdef _WIN32
+	/* not supported on windows, right now */
+#else
 	pid_t chld;
 	int pipeFd[2];
 
@@ -845,15 +866,17 @@ void BarUiStartEventCmd (const BarSettings_t *settings, const char *type,
 			/* send station list */
 			PianoStation_t **sortedStations = NULL;
 			size_t stationCount;
+			size_t i;
 			sortedStations = BarSortedStations (stations, &stationCount,
 					settings->sortOrder);
 			assert (sortedStations != NULL);
 
-			fprintf (pipeWriteFd, "stationCount=%zd\n", stationCount);
+			fprintf (pipeWriteFd, "stationCount=" ui_ssize_t_spec "\n",
+					stationCount);
 
-			for (size_t i = 0; i < stationCount; i++) {
+			for (i = 0; i < stationCount; i++) {
 				const PianoStation_t *currStation = sortedStations[i];
-				fprintf (pipeWriteFd, "station%zd=%s\n", i,
+				fprintf (pipeWriteFd, "station" ui_ssize_t_spec "=%s\n", i,
 						currStation->name);
 			}
 			free (sortedStations);
@@ -861,12 +884,13 @@ void BarUiStartEventCmd (const BarSettings_t *settings, const char *type,
 			const char * const msg = "stationCount=0\n";
 			fwrite (msg, sizeof (*msg), strlen (msg), pipeWriteFd);
 		}
-	
+
 		/* closes pipeFd[1] as well */
 		fclose (pipeWriteFd);
 		/* wait to get rid of the zombie */
 		waitpid (chld, &status, 0);
 	}
+#endif
 }
 
 /*	prepend song to history, must not be a list of songs as ->next is modified!
@@ -874,6 +898,7 @@ void BarUiStartEventCmd (const BarSettings_t *settings, const char *type,
 void BarUiHistoryPrepend (BarApp_t *app, PianoSong_t *song) {
 	if (app->settings.history != 0) {
 		PianoSong_t *tmpSong;
+		unsigned int i = 1;
 
 		song->next = app->songHistory;
 		app->songHistory = song;
@@ -881,7 +906,6 @@ void BarUiHistoryPrepend (BarApp_t *app, PianoSong_t *song) {
 		/* limit history's length */
 		/* start with 1, so we're stopping at n-1 and have the
 		 * chance to set ->next = NULL */
-		unsigned int i = 1;
 		tmpSong = app->songHistory;
 		while (i < app->settings.history && tmpSong != NULL) {
 			tmpSong = tmpSong->next;

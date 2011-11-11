@@ -34,6 +34,8 @@ THE SOFTWARE.
 BarKeyShortcutId_t BarUiDispatch (BarApp_t *app, const char key, PianoStation_t *selStation,
 		PianoSong_t *selSong, const bool verbose,
 		BarUiDispatchContext_t context) {
+			size_t i;
+
 	assert (app != NULL);
 	assert (sizeof (app->settings.keys) / sizeof (*app->settings.keys) ==
 			sizeof (dispatchActions) / sizeof (*dispatchActions));
@@ -45,7 +47,7 @@ BarKeyShortcutId_t BarUiDispatch (BarApp_t *app, const char key, PianoStation_t 
 		context |= BAR_DC_SONG;
 	}
 
-	for (size_t i = 0; i < BAR_KS_COUNT; i++) {
+	for (i = 0; i < BAR_KS_COUNT; i++) {
 		if (app->settings.keys[i] != BAR_KS_DISABLED &&
 				app->settings.keys[i] == key) {
 			if ((dispatchActions[i].context & context) == dispatchActions[i].context) {

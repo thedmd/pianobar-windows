@@ -28,12 +28,23 @@ THE SOFTWARE.
 #include <math.h>
 #include <stdint.h>
 #include <limits.h>
+#include <stdio.h>
+
+#ifndef _WIN32
 #include <arpa/inet.h>
+#endif
 
 #include "player.h"
 #include "config.h"
 #include "ui.h"
 #include "ui_types.h"
+
+#ifdef _WIN32
+#define player_size_t_spec "%Iu"
+#else
+#define player_size_t_spec "%zu"
+#endif
+
 
 #define bigToHostEndian32(x) ntohl(x)
 
@@ -58,7 +69,7 @@ THE SOFTWARE.
  *	@return this * yourvalue = newgain value
  */
 unsigned int BarPlayerCalcScale (float applyGain) {
-	return pow (10.0, applyGain / 20.0) * RG_SCALE_FACTOR;
+	return (unsigned int)(pow (10.0, applyGain / 20.0) * RG_SCALE_FACTOR);
 }
 
 /*	apply replaygain to signed short value
@@ -66,7 +77,7 @@ unsigned int BarPlayerCalcScale (float applyGain) {
  *	@param replaygain scale (calculated by computeReplayGainScale)
  *	@return scaled value
  */
-static inline signed short int applyReplayGain (signed short int value,
+static INLINE signed short int applyReplayGain (signed short int value,
 		unsigned int scale) {
 	int tmpReplayBuf = value * scale;
 	/* avoid clipping */
@@ -85,7 +96,7 @@ static inline signed short int applyReplayGain (signed short int value,
  *	@param data size
  *	@return 1 on success, 0 when buffer overflow occured
  */
-static inline int BarPlayerBufferFill (struct audioPlayer *player, char *data,
+static INLINE int BarPlayerBufferFill (struct audioPlayer *player, char *data,
 		size_t dataSize) {
 	/* fill buffer */
 	if (player->bufferFilled + dataSize > sizeof (player->buffer)) {
@@ -104,7 +115,7 @@ static inline int BarPlayerBufferFill (struct audioPlayer *player, char *data,
  *	@param player structure
  *	@return nothing at all
  */
-static inline void BarPlayerBufferMove (struct audioPlayer *player) {
+static INLINE void BarPlayerBufferMove (struct audioPlayer *player) {
 	/* move remaining bytes to buffer beginning */
 	memmove (player->buffer, player->buffer + player->bufferRead,
 			(player->bufferFilled - player->bufferRead));
@@ -293,7 +304,7 @@ static WaitressCbReturn_t BarPlayerAACCb (void *ptr, size_t size, void *stream) 
  *	@param mad fixed
  *	@return short int
  */
-static inline signed short int BarPlayerMadToShort (mad_fixed_t fixed) {
+static INLINE signed short int BarPlayerMadToShort (mad_fixed_t fixed) {
 	/* Clipping */
 	if (fixed >= MAD_F_ONE) {
 		return SHRT_MAX;
@@ -354,7 +365,7 @@ static WaitressCbReturn_t BarPlayerMp3Cb (void *ptr, size_t size, void *stream) 
 			ao_sample_format format;
 			int audioOutDriver;
 
-			player->channels = player->mp3Synth.pcm.channels;
+			player->channels = (unsigned char)player->mp3Synth.pcm.channels;
 			player->samplerate = player->mp3Synth.pcm.samplerate;
 			audioOutDriver = ao_default_driver_id();
 			memset (&format, 0, sizeof (format));
@@ -410,7 +421,7 @@ static WaitressCbReturn_t BarPlayerMp3Cb (void *ptr, size_t size, void *stream) 
 void *BarPlayerThread (void *data) {
 	struct audioPlayer *player = data;
 	char extraHeaders[25];
-	void *ret = PLAYER_RET_OK;
+	void *ret = (void*)(PLAYER_RET_OK);
 	#ifdef ENABLE_FAAD
 	NeAACDecConfigurationPtr conf;
 	#endif
@@ -429,7 +440,7 @@ void *BarPlayerThread (void *data) {
 			/* set aac conf */
 			conf = NeAACDecGetCurrentConfiguration(player->aacHandle);
 			conf->outputFormat = FAAD_FMT_16BIT;
-		    conf->downMatrix = 1;
+			conf->downMatrix = 1;
 			NeAACDecSetConfiguration(player->aacHandle, conf);
 
 			player->waith.callback = BarPlayerAACCb;
@@ -449,17 +460,17 @@ void *BarPlayerThread (void *data) {
 
 		default:
 			BarUiMsg (player->settings, MSG_ERR, "Unsupported audio format!\n");
-			return PLAYER_RET_OK;
+			return (void*)PLAYER_RET_OK;
 			break;
 	}
-	
+
 	player->mode = PLAYER_INITIALIZED;
 
 	/* This loop should work around song abortions by requesting the
 	 * missing part of the song */
 	do {
-		snprintf (extraHeaders, sizeof (extraHeaders), "Range: bytes=%zu-\r\n",
-				player->bytesReceived);
+		bar_snprintf (extraHeaders, sizeof (extraHeaders), "Range: bytes="
+				player_size_t_spec "-\r\n", player->bytesReceived);
 		wRet = WaitressFetchCall (&player->waith);
 	} while (wRet == WAITRESS_RET_PARTIAL_FILE || wRet == WAITRESS_RET_TIMEOUT
 			|| wRet == WAITRESS_RET_READ_ERR);

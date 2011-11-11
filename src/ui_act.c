@@ -46,7 +46,7 @@ THE SOFTWARE.
 /*	helper to _really_ skip a song (unlock mutex, quit player)
  *	@param player handle
  */
-static inline void BarUiDoSkipSong (struct audioPlayer *player) {
+static INLINE void BarUiDoSkipSong (struct audioPlayer *player) {
 	assert (player != NULL);
 
 	player->doQuit = 1;
@@ -78,8 +78,9 @@ static int BarTransformIfShared (BarApp_t *app, PianoStation_t *station) {
 /*	print current shortcut configuration
  */
 BarUiActCallback(BarUiActHelp) {
+	size_t i;
 	BarUiMsg (&app->settings, MSG_NONE, "\r");
-	for (size_t i = 0; i < BAR_KS_COUNT; i++) {
+	for (i = 0; i < BAR_KS_COUNT; i++) {
 		if (dispatchActions[i].helpText != NULL &&
 				(context & dispatchActions[i].context) == dispatchActions[i].context &&
 				app->settings.keys[i] != BAR_KS_DISABLED) {
@@ -120,6 +121,7 @@ BarUiActCallback(BarUiActAddMusic) {
 BarUiActCallback(BarUiActBanSong) {
 	PianoReturn_t pRet;
 	WaitressReturn_t wRet;
+	PianoRequestDataRateSong_t reqData;
 
 	assert (selStation != NULL);
 	assert (selSong != NULL);
@@ -128,7 +130,6 @@ BarUiActCallback(BarUiActBanSong) {
 		return;
 	}
 
-	PianoRequestDataRateSong_t reqData;
 	reqData.song = selSong;
 	reqData.rating = PIANO_RATE_BAN;
 
@@ -281,6 +282,7 @@ BarUiActCallback(BarUiActDebug) {
 BarUiActCallback(BarUiActLoveSong) {
 	PianoReturn_t pRet;
 	WaitressReturn_t wRet;
+	PianoRequestDataRateSong_t reqData;
 
 	assert (selStation != NULL);
 	assert (selSong != NULL);
@@ -289,7 +291,6 @@ BarUiActCallback(BarUiActLoveSong) {
 		return;
 	}
 
-	PianoRequestDataRateSong_t reqData;
 	reqData.song = selSong;
 	reqData.rating = PIANO_RATE_LOVE;
 
@@ -411,9 +412,11 @@ BarUiActCallback(BarUiActTempBanSong) {
 /*	print upcoming songs
  */
 BarUiActCallback(BarUiActPrintUpcoming) {
+	PianoSong_t *nextSong;
+
 	assert (selSong != NULL);
 
-	PianoSong_t *nextSong = selSong->next;
+	nextSong = selSong->next;
 	if (nextSong != NULL) {
 		BarUiListSongs (&app->settings, nextSong, NULL);
 	} else {

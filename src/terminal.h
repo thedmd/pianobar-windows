@@ -24,9 +24,25 @@ THE SOFTWARE.
 #ifndef _TERMINAL_H
 #define _TERMINAL_H
 
+#ifdef _WIN32
+
+#include <winsock2.h>
+
+HANDLE BarConsoleGetStdInHandleWin32 (void);
+HANDLE BarConsoleGetStdOutHandleWin32 (void);
+void BarConsoleSetCursorPositionWin32 (COORD position);
+COORD BarConsoleGetCursorPositionWin32 (void);
+COORD BarConsoleMoveCursorWin32 (int xoffset);
+void BarConsoleClearLineWin32 (void);
+void BarConsoleSetSizeWin32 (int width, int height);
+
+#else
+
 void BarTermSetEcho (char);
 void BarTermSetBuffer (char);
 void BarTermSave (struct termios *);
 void BarTermRestore (struct termios *termOrig);
+
+#endif
 
 #endif /* _TERMINAL_H */

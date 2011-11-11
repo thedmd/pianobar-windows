@@ -22,8 +22,8 @@ THE SOFTWARE.
 */
 
 #ifndef __FreeBSD__
-#define _BSD_SOURCE /* required by strdup() */
-#define _DARWIN_C_SOURCE /* strdup() on OS X */
+#define _BSD_SOURCE /* required by piano_strdup() */
+#define _DARWIN_C_SOURCE /* piano_strdup() on OS X */
 #endif
 
 #include <stdio.h>
@@ -56,7 +56,7 @@ void PianoInit (PianoHandle_t *ph) {
 	memset (ph, 0, sizeof (*ph));
 
 	/* route-id seems to be random. we're using time anyway... */
-	snprintf (ph->routeId, sizeof (ph->routeId), "%07luP",
+	piano_snprintf (ph->routeId, sizeof (ph->routeId), "%07luP",
 			(unsigned long) time (NULL) % 10000000);
 }
 
@@ -174,10 +174,11 @@ void PianoDestroyUserInfo (PianoUserInfo_t *user) {
  *	@return nothing
  */
 void PianoDestroy (PianoHandle_t *ph) {
+	PianoGenreCategory_t *curGenreCat, *lastGenreCat;
 	PianoDestroyUserInfo (&ph->user);
 	PianoDestroyStations (ph->stations);
 	/* destroy genre stations */
-	PianoGenreCategory_t *curGenreCat = ph->genreStations, *lastGenreCat;
+	curGenreCat = ph->genreStations;
 	while (curGenreCat != NULL) {
 		PianoDestroyGenres (curGenreCat->genres);
 		free (curGenreCat->name);
@@ -246,11 +247,11 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 
 			switch (logindata->step) {
 				case 0:
-					snprintf (xmlSendBuf, sizeof (xmlSendBuf), 
+					piano_snprintf (xmlSendBuf, sizeof (xmlSendBuf), 
 							"<?xml version=\"1.0\"?><methodCall>"
 							"<methodName>misc.sync</methodName>"
 							"<params></params></methodCall>");
-					snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
+					piano_snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
 							"rid=%s&method=sync", ph->routeId);
 					break;
 
@@ -264,7 +265,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 						return PIANO_RET_OUT_OF_MEMORY;
 					}
 
-					snprintf (xmlSendBuf, sizeof (xmlSendBuf), 
+					piano_snprintf (xmlSendBuf, sizeof (xmlSendBuf), 
 							"<?xml version=\"1.0\"?><methodCall>"
 							"<methodName>listener.authenticateListener</methodName>"
 							"<params><param><value><int>%lu</int></value></param>"
@@ -272,7 +273,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 							"<param><value><string>%s</string></value></param>"
 							"</params></methodCall>", (unsigned long) timestamp,
 							logindata->user, xmlencodedPassword);
-					snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
+					piano_snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
 							"rid=%s&method=authenticateListener", ph->routeId);
 
 					free (xmlencodedPassword);
@@ -286,13 +287,13 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 			/* get stations, user must be authenticated */
 			assert (ph->user.listenerId != NULL);
 
-			snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
+			piano_snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
 					"<methodCall><methodName>station.getStations</methodName>"
 					"<params><param><value><int>%lu</int></value></param>"
 					"<param><value><string>%s</string></value></param>"
 					"</params></methodCall>", (unsigned long) timestamp,
 					ph->user.authToken);
-			snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
+			piano_snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
 					"rid=%s&lid=%s&method=getStations", ph->routeId,
 					ph->user.listenerId);
 			break;
@@ -306,7 +307,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 			assert (reqData->station->id != NULL);
 			assert (reqData->format != PIANO_AF_UNKNOWN);
 
-			snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
+			piano_snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
 					"<methodCall><methodName>playlist.getFragment</methodName>"
 					"<params><param><value><int>%lu</int></value></param>"
 					/* auth token */
@@ -328,7 +329,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 					"</params></methodCall>", (unsigned long) timestamp,
 					ph->user.authToken, reqData->station->id,
 					PianoAudioFormatToString (reqData->format));
-			snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
+			piano_snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
 					"rid=%s&lid=%s&method=getFragment&arg1=%s&arg2=0"
 					"&arg3=&arg4=&arg5=%s&arg6=0&arg7=0", ph->routeId,
 					ph->user.listenerId, reqData->station->id,
@@ -344,7 +345,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 			assert (reqData->stationId != NULL);
 			assert (reqData->rating != PIANO_RATE_NONE);
 
-			snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
+			piano_snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
 					"<methodCall><methodName>station.addFeedback</methodName>"
 					"<params><param><value><int>%lu</int></value></param>"
 					/* auth token */
@@ -358,7 +359,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 					"</params></methodCall>", (unsigned long) timestamp,
 					ph->user.authToken, reqData->stationId, reqData->trackToken,
 					(reqData->rating == PIANO_RATE_LOVE) ? 1 : 0);
-			snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
+			piano_snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
 					"rid=%s&lid=%s&method=addFeedback&arg1=%s&arg2=%s"
 					"&arg3=%s",
 					ph->routeId, ph->user.listenerId, reqData->stationId,
@@ -381,7 +382,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 			}
 			urlencodedNewName = WaitressUrlEncode (reqData->newName);
 
-			snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
+			piano_snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
 					"<methodCall><methodName>station.setStationName</methodName>"
 					"<params><param><value><int>%lu</int></value></param>"
 					/* auth token */
@@ -393,7 +394,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 					"</params></methodCall>", (unsigned long) timestamp,
 					ph->user.authToken, reqData->station->id,
 					xmlencodedNewName);
-			snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
+			piano_snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
 					"rid=%s&lid=%s&method=setStationName&arg1=%s&arg2=%s",
 					ph->routeId, ph->user.listenerId, reqData->station->id,
 					urlencodedNewName);
@@ -409,7 +410,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 
 			assert (station != NULL);
 
-			snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
+			piano_snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
 					"<methodCall><methodName>station.removeStation</methodName>"
 					"<params><param><value><int>%lu</int></value></param>"
 					/* auth token */
@@ -418,7 +419,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 					"<param><value><string>%s</string></value></param>"
 					"</params></methodCall>", (unsigned long) timestamp,
 					ph->user.authToken, station->id);
-			snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
+			piano_snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
 					"rid=%s&lid=%s&method=removeStation&arg1=%s", ph->routeId,
 					ph->user.listenerId, station->id);
 			break;
@@ -437,7 +438,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 			}
 			urlencodedSearchStr = WaitressUrlEncode (reqData->searchStr);
 
-			snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
+			piano_snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
 					"<methodCall><methodName>music.search</methodName>"
 					"<params><param><value><int>%lu</int></value></param>"
 					/* auth token */
@@ -446,7 +447,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 					"<param><value><string>%s</string></value></param>"
 					"</params></methodCall>", (unsigned long) timestamp,
 					ph->user.authToken, xmlencodedSearchStr);
-			snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
+			piano_snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
 					"rid=%s&lid=%s&method=search&arg1=%s", ph->routeId,
 					ph->user.listenerId, urlencodedSearchStr);
 
@@ -464,7 +465,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 			assert (reqData->id != NULL);
 			assert (reqData->type != NULL);
 
-			snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
+			piano_snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
 					"<methodCall><methodName>station.createStation</methodName>"
 					"<params><param><value><int>%lu</int></value></param>"
 					/* auth token */
@@ -476,7 +477,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 					"</params></methodCall>", (unsigned long) timestamp,
 					ph->user.authToken, reqData->type, reqData->id);
 
-			snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
+			piano_snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
 					"rid=%s&lid=%s&method=createStation&arg1=%s%s&arg2=", ph->routeId,
 					ph->user.listenerId, reqData->type, reqData->id);
 			break;
@@ -490,7 +491,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 			assert (reqData->station != NULL);
 			assert (reqData->musicId != NULL);
 
-			snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
+			piano_snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
 					"<methodCall><methodName>station.addSeed</methodName><params>"
 					"<param><value><int>%lu</int></value></param>"
 					/* auth token */
@@ -501,7 +502,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 					"<param><value><string>%s</string></value></param>"
 					"</params></methodCall>", (unsigned long) timestamp,
 					ph->user.authToken, reqData->station->id, reqData->musicId);
-			snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
+			piano_snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
 					"rid=%s&lid=%s&method=addSeed&arg1=%s&arg2=%s", ph->routeId,
 					ph->user.listenerId, reqData->station->id, reqData->musicId);
 			break;
@@ -513,7 +514,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 
 			assert (song != NULL);
 
-			snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
+			piano_snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
 					"<methodCall><methodName>listener.addTiredSong</methodName><params>"
 					"<param><value><int>%lu</int></value></param>"
 					"<param><value><string>%s</string></value></param>"
@@ -528,7 +529,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 					(song->musicId == NULL) ? "" : song->musicId,
 					(song->userSeed == NULL) ? "" : song->userSeed,
 					song->stationId);
-			snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
+			piano_snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
 					"rid=%s&lid=%s&method=addTiredSong&arg1=%s&arg2=%s&arg3=%s",
 					ph->routeId, ph->user.listenerId,
 					(song->musicId == NULL) ? "" : song->musicId,
@@ -544,7 +545,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 			PianoStation_t *curStation = ph->stations;
 
 			memset (urlArgBuf, 0, sizeof (urlArgBuf));
-			snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
+			piano_snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
 					"<methodCall><methodName>station.setQuickMix</methodName><params>"
 					"<param><value><int>%lu</int></value></param>"
 					"<param><value><string>%s</string></value></param>"
@@ -559,7 +560,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 					continue;
 				}
 				/* append to xml doc */
-				snprintf (valueBuf, sizeof (valueBuf),
+				piano_snprintf (valueBuf, sizeof (valueBuf),
 						"<value><string>%s</string></value>", curStation->id);
 				strncat (xmlSendBuf, valueBuf, sizeof (xmlSendBuf) -
 						strlen (xmlSendBuf) - 1);
@@ -582,7 +583,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 					"</params></methodCall>",
 					sizeof (xmlSendBuf) - strlen (xmlSendBuf) - 1);
 
-			snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
+			piano_snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
 					"rid=%s&lid=%s&method=setQuickMix&arg1=RANDOM&arg2=%s&arg3=&arg4=",
 					ph->routeId, ph->user.listenerId, urlArgBuf);
 			break;
@@ -591,7 +592,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 		case PIANO_REQUEST_GET_GENRE_STATIONS:
 			/* receive list of pandora's genre stations */
 			xmlSendBuf[0] = '\0';
-			snprintf (req->urlPath, sizeof (req->urlPath), "/xml/genre?r=%lu",
+			piano_snprintf (req->urlPath, sizeof (req->urlPath), "/xml/genre?r=%lu",
 					(unsigned long) timestamp);
 			break;
 
@@ -601,7 +602,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 
 			assert (station != NULL);
 
-			snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
+			piano_snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
 					"<methodCall><methodName>station.transformShared</methodName>"
 					"<params><param><value><int>%lu</int></value></param>"
 					/* auth token */
@@ -610,7 +611,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 					"<param><value><string>%s</string></value></param>"
 					"</params></methodCall>", (unsigned long) timestamp,
 					ph->user.authToken, station->id);
-			snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
+			piano_snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
 					"rid=%s&lid=%s&method=transformShared&arg1=%s", ph->routeId,
 					ph->user.listenerId, station->id);
 			break;
@@ -623,7 +624,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 			assert (reqData != NULL);
 			assert (reqData->song != NULL);
 
-			snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
+			piano_snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
 					"<methodCall><methodName>playlist.narrative</methodName>"
 					"<params><param><value><int>%lu</int></value></param>"
 					/* auth token */
@@ -635,7 +636,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 					"</params></methodCall>", (unsigned long) timestamp,
 					ph->user.authToken, reqData->song->stationId,
 					reqData->song->musicId);
-			snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
+			piano_snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
 					"rid=%s&lid=%s&method=narrative&arg1=%s&arg2=%s",
 					ph->routeId, ph->user.listenerId, reqData->song->stationId,
 					reqData->song->musicId);
@@ -650,7 +651,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 			assert (reqData->musicId != NULL);
 			assert (reqData->max != 0);
 
-			snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
+			piano_snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
 					"<methodCall><methodName>music.getSeedSuggestions</methodName>"
 					"<params><param><value><int>%lu</int></value></param>"
 					/* auth token */
@@ -664,7 +665,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 					"</params></methodCall>", (unsigned long) timestamp,
 					ph->user.authToken, reqData->station->id, reqData->musicId,
 					reqData->max);
-			snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
+			piano_snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
 					"rid=%s&lid=%s&method=getSeedSuggestions&arg1=%s&arg2=%u",
 					ph->routeId, ph->user.listenerId, reqData->musicId, reqData->max);
 			break;
@@ -676,7 +677,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 
 			assert (song != NULL);
 
-			snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
+			piano_snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
 					"<methodCall><methodName>station.createBookmark</methodName>"
 					"<params><param><value><int>%lu</int></value></param>"
 					/* auth token */
@@ -687,7 +688,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 					"<param><value><string>%s</string></value></param>"
 					"</params></methodCall>", (unsigned long) timestamp,
 					ph->user.authToken, song->stationId, song->musicId);
-			snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
+			piano_snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
 					"rid=%s&lid=%s&method=createBookmark&arg1=%s&arg2=%s",
 					ph->routeId, ph->user.listenerId, song->stationId,
 					song->musicId);
@@ -700,7 +701,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 
 			assert (song != NULL);
 
-			snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
+			piano_snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
 					"<methodCall><methodName>station.createArtistBookmark</methodName>"
 					"<params><param><value><int>%lu</int></value></param>"
 					/* auth token */
@@ -709,7 +710,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 					"<param><value><string>%s</string></value></param>"
 					"</params></methodCall>", (unsigned long) timestamp,
 					ph->user.authToken, song->artistMusicId);
-			snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
+			piano_snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
 					"rid=%s&lid=%s&method=createArtistBookmark&arg1=%s",
 					ph->routeId, ph->user.listenerId, song->artistMusicId);
 			break;
@@ -722,7 +723,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 			assert (reqData != NULL);
 			assert (reqData->station != NULL);
 
-			snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
+			piano_snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
 					"<methodCall><methodName>station.getStation</methodName>"
 					"<params><param><value><int>%lu</int></value></param>"
 					/* auth token */
@@ -731,7 +732,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 					"<param><value><string>%s</string></value></param>"
 					"</params></methodCall>", (unsigned long) timestamp,
 					ph->user.authToken, reqData->station->id);
-			snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
+			piano_snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
 					"rid=%s&lid=%s&method=getStation&arg1=%s",
 					ph->routeId, ph->user.listenerId, reqData->station->id);
 			break;
@@ -742,7 +743,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 
 			assert (song != NULL);
 
-			snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
+			piano_snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
 					"<methodCall><methodName>station.deleteFeedback</methodName>"
 					"<params><param><value><int>%lu</int></value></param>"
 					/* auth token */
@@ -751,7 +752,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 					"<param><value><string>%s</string></value></param>"
 					"</params></methodCall>", (unsigned long) timestamp,
 					ph->user.authToken, song->feedbackId);
-			snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
+			piano_snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
 					"rid=%s&lid=%s&method=deleteFeedback&arg1=%s",
 					ph->routeId, ph->user.listenerId, song->feedbackId);
 			break;
@@ -775,7 +776,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 
 			assert (seedId != NULL);
 
-			snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
+			piano_snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
 					"<methodCall><methodName>station.deleteSeed</methodName>"
 					"<params><param><value><int>%lu</int></value></param>"
 					/* auth token */
@@ -784,7 +785,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 					"<param><value><string>%s</string></value></param>"
 					"</params></methodCall>", (unsigned long) timestamp,
 					ph->user.authToken, seedId);
-			snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
+			piano_snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
 					"rid=%s&lid=%s&method=deleteSeed&arg1=%s",
 					ph->routeId, ph->user.listenerId, seedId);
 			break;
@@ -793,6 +794,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 		/* "high-level" wrapper */
 		case PIANO_REQUEST_RATE_SONG: {
 			/* love/ban song */
+			PianoRequestDataAddFeedback_t transformedReqData;
 			PianoRequestDataRateSong_t *reqData = req->data;
 			PianoReturn_t pRet;
 
@@ -800,7 +802,6 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 			assert (reqData->song != NULL);
 			assert (reqData->rating != PIANO_RATE_NONE);
 
-			PianoRequestDataAddFeedback_t transformedReqData;
 			transformedReqData.stationId = reqData->song->stationId;
 			transformedReqData.trackToken = reqData->song->trackToken;
 			transformedReqData.rating = reqData->rating;
@@ -899,7 +900,7 @@ PianoReturn_t PianoResponse (PianoHandle_t *ph, PianoRequest_t *req) {
 							/* skip four bytes garbage? at beginning */
 							while (i-- > 0 && *decryptedPos++ != '\0');
 							timestamp = strtoul (decryptedPos, NULL, 0);
-							ph->timeOffset = realTimestamp - timestamp;
+							ph->timeOffset = (int)(realTimestamp - timestamp);
 
 							free (decryptedTimestamp);
 						}
@@ -986,7 +987,7 @@ PianoReturn_t PianoResponse (PianoHandle_t *ph, PianoRequest_t *req) {
 				assert (reqData->newName != NULL);
 
 				free (reqData->station->name);
-				reqData->station->name = strdup (reqData->newName);
+				reqData->station->name = piano_strdup (reqData->newName);
 			}
 			break;
 
@@ -995,12 +996,13 @@ PianoReturn_t PianoResponse (PianoHandle_t *ph, PianoRequest_t *req) {
 			assert (req->responseData != NULL);
 
 			if ((ret = PianoXmlParseSimple (req->responseData)) == PIANO_RET_OK) {
+				PianoStation_t *curStation, *lastStation = NULL;
 				PianoStation_t *station = req->data;
 
 				assert (station != NULL);
 
 				/* delete station from local station list */
-				PianoStation_t *curStation = ph->stations, *lastStation = NULL;
+				curStation = ph->stations;
 				while (curStation != NULL) {
 					if (curStation == station) {
 						if (lastStation != NULL) {

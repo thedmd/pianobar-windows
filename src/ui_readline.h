@@ -25,18 +25,27 @@ THE SOFTWARE.
 #define _UI_READLINE_H
 
 #include <stdbool.h>
+#ifdef _WIN32
+#include <winsock2.h>
+#else
 #include <sys/select.h>
+#endif
 
 typedef enum {
 	BAR_RL_DEFAULT = 0,
 	BAR_RL_FULLRETURN = 1, /* return if buffer is full */
 	BAR_RL_NOECHO = 2, /* don't echo to stdout */
+	BAR_RL_PASSWORD = 4, /* like regular typing, but invisible */
 } BarReadlineFlags_t;
 
 typedef struct {
+#ifdef _WIN32
+	void* empty;
+#else
 	fd_set set;
 	int maxfd;
 	int fds[2];
+#endif
 } BarReadlineFds_t;
 
 size_t BarReadline (char *, const size_t, const char *,

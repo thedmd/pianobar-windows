@@ -27,6 +27,98 @@ THE SOFTWARE.
 #define _DARWIN_C_SOURCE /* setlinebuf() on OS X */
 #endif
 
+#include "terminal.h"
+
+#ifdef _WIN32
+
+HANDLE BarConsoleGetStdInHandleWin32 (void) {
+	return GetStdHandle (STD_INPUT_HANDLE);
+}
+
+HANDLE BarConsoleGetStdOutHandleWin32 (void) {
+	return GetStdHandle (STD_OUTPUT_HANDLE);
+}
+
+void BarConsoleSetCursorPositionWin32 (COORD position) {
+	SetConsoleCursorPosition (BarConsoleGetStdOutHandleWin32 (), position);
+}
+
+COORD BarConsoleGetCursorPositionWin32 (void) {
+	CONSOLE_SCREEN_BUFFER_INFO consoleInfo;
+	COORD result = { -1, -1 };
+
+	if (GetConsoleScreenBufferInfo (BarConsoleGetStdOutHandleWin32 (), &consoleInfo))
+		result = consoleInfo.dwCursorPosition;
+
+
+	return result;
+}
+
+COORD BarConsoleMoveCursorWin32 (int offset) {
+	COORD position;
+
+	position = BarConsoleGetCursorPositionWin32 ();
+	position.X += offset;
+	BarConsoleSetCursorPositionWin32 (position);
+
+	return position;
+}
+
+void BarConsoleClearLineWin32 (void) {
+	CONSOLE_SCREEN_BUFFER_INFO csbiInfo;
+	DWORD writen;
+	COORD coords;
+
+	HANDLE handle = BarConsoleGetStdInHandleWin32 ();
+
+	if (!GetConsoleScreenBufferInfo (handle, &csbiInfo))
+		return;
+
+	writen = 0;
+	coords.X = 0;
+	coords.Y = csbiInfo.dwCursorPosition.Y;
+	FillConsoleOutputCharacter (handle, ' ', csbiInfo.dwSize.X, coords, &writen);
+	FillConsoleOutputAttribute (handle, csbiInfo.wAttributes, csbiInfo.dwSize.X, coords, &writen);
+
+	SetConsoleCursorPosition (handle, coords);
+}
+
+void BarConsoleSetSizeWin32 (int width, int height) {
+	HANDLE handle;
+	SMALL_RECT r;
+	COORD c, s;
+	CONSOLE_SCREEN_BUFFER_INFO csbi;
+
+	handle = BarConsoleGetStdOutHandleWin32 ();
+
+	if (!GetConsoleScreenBufferInfo (handle, &csbi))
+		return;
+
+	s.X = csbi.srWindow.Right - csbi.srWindow.Left + 1;
+	s.Y = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+
+	if (s.X > width && s.Y > height)
+		return;
+
+	c.X = width;
+	c.Y = height;
+
+	if (s.X > c.X)
+		c.X = s.X;
+	if (s.Y > c.Y)
+		c.Y = s.Y;
+
+	SetConsoleScreenBufferSize (handle, c);
+
+	r.Left   = 0;
+	r.Top    = 0;
+	r.Right  = c.X - 1;
+	r.Bottom = c.Y - 1;
+	SetConsoleWindowInfo (handle, TRUE, &r);
+}
+
+#else /* _WIN32 */
+
 #include <termios.h>
 #include <stdio.h>
 
@@ -77,3 +169,4 @@ void BarTermRestore (struct termios *termOrig) {
 	tcsetattr (fileno (stdin), TCSANOW, termOrig);
 }
 
+#endif /* _WIN32 */

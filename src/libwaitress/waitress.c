@@ -27,16 +27,55 @@ THE SOFTWARE.
 #define _DARWIN_C_SOURCE /* snprintf() on OS X */
 #endif
 
+#ifdef _MSC_VER
+#define waitress_strdup						_strdup
+#define waitress_snprintf					 _snprintf
+#define waitress_strcasecmp					_stricmp
+#else
+#define waitress_strdup						strdup
+#define waitress_snprintf					snprintf
+#define waitress_strcasecmp					strcasecmp
+#endif
+
+#ifdef _WIN32
+#define waitress_size_t_spec				"%Iu"
+#define waitress_nfds_t						ULONG
+#define waitress_read(handle, buf, len)		recv(handle, buf, len, 0)
+#define waitress_write(handle, buf, len)	send(handle, buf, len, 0)
+#define waitress_close(handle)				closesocket(handle)
+#define waitress_setsockopt(handle, level, optname, optval, optlen) \
+	setsockopt(handle, level, optname, (char*)(optval), optlen)
+#define waitress_getsockopt(handle, level, optname, optval, optlen) \
+	getsockopt(handle, level, optname, (char*)(optval), optlen)
+#else
+#define waitress_size_t_spec				"%zu"
+#define waitress_nfds_t						nfds_t
+#define waitress_read(handle, buf, len)		read(handle, buf, len)
+#define waitress_write(handle, buf, len)	write(handle, buf, len)
+#define waitress_close(handle)				close(handle)
+#define waitress_setsockopt(handle, level, optname, optval, optlen) \
+	setsockopt(handle, level, optname, optval, optlen)
+#define waitress_getsockopt(handle, level, optname, optval, optlen) \
+	getsockopt(handle, level, optname, optval, optlen)
+#endif
+
 #include <sys/types.h>
+#ifdef _WIN32
+#define _WIN32_WINNT 0x501
+#include <winsock2.h>
+#include <windows.h>
+#include <ws2tcpip.h>
+#else
 #include <sys/socket.h>
 #include <netdb.h>
+#include <poll.h>
+#endif
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include <fcntl.h>
-#include <poll.h>
 #include <errno.h>
 #include <assert.h>
 
@@ -45,7 +84,7 @@ THE SOFTWARE.
 #include "config.h"
 #include "waitress.h"
 
-#define strcaseeq(a,b) (strcasecmp(a,b) == 0)
+#define strcaseeq(a,b) (waitress_strcasecmp(a,b) == 0)
 #define WAITRESS_HTTP_VERSION "1.1"
 
 typedef struct {
@@ -53,8 +92,39 @@ typedef struct {
 	size_t pos;
 } WaitressFetchBufCbBuffer_t;
 
+#ifdef _WIN32
+static void WaitressStaticFree (void) {
+	WSACleanup();
+}
+
+static void WaitressStaticInit (void) {
+
+	/* In order to avoid static member constructor attribute can be used
+	 * on GCC. Under MSVC very same functionality require rather nasty
+	 * trick with pragmas and CRT initialization pages.
+	 *
+	 * I picked solution simple to understand and implement.
+	 */
+	bool isInitialized = false;
+
+	if (false == isInitialized) {
+
+		WSADATA wsaData;
+		WSAStartup (MAKEWORD(2, 2), &wsaData);
+
+		atexit(WaitressStaticFree);
+
+		isInitialized = false;
+	}
+}
+#endif
+
 void WaitressInit (WaitressHandle_t *waith) {
 	assert (waith != NULL);
+
+	#ifdef _WIN32
+	WaitressStaticInit ();
+	#endif
 
 	memset (waith, 0, sizeof (*waith));
 	waith->timeout = 30000;
@@ -83,18 +153,23 @@ bool WaitressProxyEnabled (const WaitressHandle_t *waith) {
  *	@return malloc'ed encoded string, don't forget to free it
  */
 char *WaitressUrlEncode (const char *in) {
+	size_t inLen;
+	char *out;
+	const char *inPos;
+	char *outPos;
+
 	assert (in != NULL);
 
-	size_t inLen = strlen (in);
+	inLen = strlen (in);
 	/* worst case: encode all characters */
-	char *out = calloc (inLen * 3 + 1, sizeof (*in));
-	const char *inPos = in;
-	char *outPos = out;
+	out = calloc (inLen * 3 + 1, sizeof (*in));
+	inPos = in;
+	outPos = out;
 
-	while (inPos - in < inLen) {
+	while (inPos - in < (int)inLen) {
 		if (!isalnum (*inPos) && *inPos != '_' && *inPos != '-' && *inPos != '.') {
 			*outPos++ = '%';
-			snprintf (outPos, 3, "%02x", *inPos & 0xff);
+			waitress_snprintf (outPos, 3, "%02x", *inPos & 0xff);
 			outPos += 2;
 		} else {
 			/* copy character */
@@ -111,14 +186,16 @@ char *WaitressUrlEncode (const char *in) {
  *	@return malloc'ed string
  */
 static char *WaitressBase64Encode (const char *in) {
-	assert (in != NULL);
-
-	size_t inLen = strlen (in);
 	char *out, *outPos;
 	const char *inPos;
 	static const char *alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 			"abcdefghijklmnopqrstuvwxyz0123456789+/";
 	const size_t alphabetLen = strlen (alphabet);
+	size_t inLen;
+
+	assert (in != NULL);
+
+	inLen = strlen (in);
 
 	/* worst case is 1.333 */
 	out = malloc ((inLen * 2 + 1) * sizeof (*out));
@@ -217,11 +294,11 @@ static char *WaitressBase64Encode (const char *in) {
  *	@return url is a http url? does not say anything about its validity!
  */
 static bool WaitressSplitUrl (const char *inurl, WaitressUrl_t *retUrl) {
+	static const char *httpPrefix = "http://";
+
 	assert (inurl != NULL);
 	assert (retUrl != NULL);
 
-	static const char *httpPrefix = "http://";
-	
 	/* is http url? */
 	if (strncmp (httpPrefix, inurl, strlen (httpPrefix)) == 0) {
 		enum {FIND_USER, FIND_PASS, FIND_HOST, FIND_PORT, FIND_PATH, DONE}
@@ -229,7 +306,8 @@ static bool WaitressSplitUrl (const char *inurl, WaitressUrl_t *retUrl) {
 		char *url, *urlPos, *assignStart;
 		const char **assign = NULL;
 
-		url = strdup (inurl);
+		url = waitress_strdup (inurl);
+		free (retUrl->url);
 		retUrl->url = url;
 
 		urlPos = url + strlen (httpPrefix);
@@ -346,7 +424,7 @@ bool WaitressSetUrl (WaitressHandle_t *waith, const char *url) {
 
 /*	Set http proxy
  *	@param waitress handle
- *  @param url, e.g. http://proxy:80/
+ *	@param url, e.g. http://proxy:80/
  */
 bool WaitressSetProxy (WaitressHandle_t *waith, const char *url) {
 	return WaitressSplitUrl (url, &waith->proxy);
@@ -407,23 +485,6 @@ WaitressReturn_t WaitressFetchBuf (WaitressHandle_t *waith, char **retBuffer) {
 	return wRet;
 }
 
-/*	poll wrapper that retries after signal interrupts, required for socksify
- *	wrapper
- */
-static int WaitressPollLoop (int fd, short events, int timeout) {
-	int pollres = -1;
-	struct pollfd sockpoll = {fd, events, 0};
-
-	assert (fd != -1);
-
-	do {
-		errno = 0;
-		pollres = poll (&sockpoll, 1, timeout);
-	} while (errno == EINTR || errno == EINPROGRESS || errno == EAGAIN);
-
-	return pollres;
-}
-
 /*	write () wrapper with poll () timeout
  *	@param waitress handle
  *	@param write buffer
@@ -434,13 +495,20 @@ static ssize_t WaitressPollWrite (WaitressHandle_t *waith,
 		const char *buf, size_t count) {
 	int pollres = -1;
 	ssize_t retSize;
+	fd_set fds;
+	struct timeval tv;
 
 	assert (waith != NULL);
 	assert (buf != NULL);
 
 	/* FIXME: simplify logic */
-	pollres = WaitressPollLoop (waith->request.sockfd, POLLOUT,
-			waith->timeout);
+	memset (&tv, 0, sizeof (tv));
+	tv.tv_sec = waith->timeout;
+
+	FD_ZERO (&fds);
+	FD_SET (waith->request.sockfd, &fds);
+
+	pollres = select (waith->request.sockfd, NULL, &fds, &fds, &tv);
 	if (pollres == 0) {
 		waith->request.readWriteRet = WAITRESS_RET_TIMEOUT;
 		return -1;
@@ -448,7 +516,7 @@ static ssize_t WaitressPollWrite (WaitressHandle_t *waith,
 		waith->request.readWriteRet = WAITRESS_RET_ERR;
 		return -1;
 	}
-	if ((retSize = write (waith->request.sockfd, buf, count)) == -1) {
+	if ((retSize = waitress_write (waith->request.sockfd, buf, count)) == -1) {
 		waith->request.readWriteRet = WAITRESS_RET_ERR;
 		return -1;
 	}
@@ -480,12 +548,20 @@ static ssize_t WaitressPollRead (WaitressHandle_t *waith, char *buf,
 		size_t count) {
 	int pollres = -1;
 	ssize_t retSize;
+	fd_set fds;
+	struct timeval tv;
 
 	assert (waith != NULL);
 	assert (buf != NULL);
 
+	memset (&tv, 0, sizeof (tv));
+	tv.tv_sec = waith->timeout;
+
 	/* FIXME: simplify logic */
-	pollres = WaitressPollLoop (waith->request.sockfd, POLLIN, waith->timeout);
+	FD_ZERO (&fds);
+	FD_SET (waith->request.sockfd, &fds);
+
+	pollres = select (waith->request.sockfd, &fds, NULL, &fds, &tv);
 	if (pollres == 0) {
 		waith->request.readWriteRet = WAITRESS_RET_TIMEOUT;
 		return -1;
@@ -493,7 +569,7 @@ static ssize_t WaitressPollRead (WaitressHandle_t *waith, char *buf,
 		waith->request.readWriteRet = WAITRESS_RET_ERR;
 		return -1;
 	}
-	if ((retSize = read (waith->request.sockfd, buf, count)) == -1) {
+	if ((retSize = waitress_read (waith->request.sockfd, buf, count)) == -1) {
 		waith->request.readWriteRet = WAITRESS_RET_READ_ERR;
 		return -1;
 	}
@@ -537,11 +613,12 @@ static bool WaitressFormatAuthorization (WaitressHandle_t *waith,
 
 	if (url->user != NULL) {
 		char userPass[1024], *encodedUserPass;
-		snprintf (userPass, sizeof (userPass), "%s:%s", url->user,
+		waitress_snprintf (userPass, sizeof (userPass), "%s:%s", url->user,
 				(url->password != NULL) ? url->password : "");
 		encodedUserPass = WaitressBase64Encode (userPass);
+
 		assert (encodedUserPass != NULL);
-		snprintf (writeBuf, writeBufSize, "%sAuthorization: Basic %s\r\n",
+		waitress_snprintf (writeBuf, writeBufSize, "%sAuthorization: Basic %s\r\n",
 				prefix, encodedUserPass);
 		free (encodedUserPass);
 		return true;
@@ -692,6 +769,8 @@ static int WaitressTlsVerify (const WaitressHandle_t *waith) {
 	unsigned int certListSize;
 	const gnutls_datum_t *certList;
 	gnutls_x509_crt_t cert;
+	char fingerprint[20];
+	size_t fingerprintSize = sizeof (fingerprint);
 
 	if (gnutls_certificate_type_get (session) != GNUTLS_CRT_X509) {
 		return GNUTLS_E_CERTIFICATE_ERROR;
@@ -711,8 +790,6 @@ static int WaitressTlsVerify (const WaitressHandle_t *waith) {
 		return GNUTLS_E_CERTIFICATE_ERROR;
 	}
 
-	char fingerprint[20];
-	size_t fingerprintSize = sizeof (fingerprint);
 	if (gnutls_x509_crt_get_fingerprint (cert, GNUTLS_DIG_SHA1, fingerprint,
 			&fingerprintSize) != 0) {
 		return GNUTLS_E_CERTIFICATE_ERROR;
@@ -727,11 +804,25 @@ static int WaitressTlsVerify (const WaitressHandle_t *waith) {
 	return 0;
 }
 
+static void WaitressDisableBlocking(int sockfd)
+{
+	#ifdef _WIN32
+	u_long iMode = 1;
+	ioctlsocket(sockfd, FIONBIO, &iMode);
+	#else
+	fcntl (sockfd, F_SETFL, O_NONBLOCK);
+	#endif
+}
+
 /*	Connect to server
  */
 static WaitressReturn_t WaitressConnect (WaitressHandle_t *waith) {
 	struct addrinfo hints, *res;
+	const int sockopt = 256*1024;
 	int pollres;
+	socklen_t pollresSize = sizeof (pollres);
+	fd_set fds;
+	struct timeval tv;
 
 	memset (&hints, 0, sizeof hints);
 
@@ -758,18 +849,22 @@ static WaitressReturn_t WaitressConnect (WaitressHandle_t *waith) {
 	}
 
 	/* we need shorter timeouts for connect() */
-	fcntl (waith->request.sockfd, F_SETFL, O_NONBLOCK);
+	WaitressDisableBlocking(waith->request.sockfd);
 
 	/* increase socket receive buffer */
-	const int sockopt = 256*1024;
-	setsockopt (waith->request.sockfd, SOL_SOCKET, SO_RCVBUF, &sockopt,
+	waitress_setsockopt (waith->request.sockfd, SOL_SOCKET, SO_RCVBUF, &sockopt,
 			sizeof (sockopt));
 
 	/* non-blocking connect will return immediately */
 	connect (waith->request.sockfd, res->ai_addr, res->ai_addrlen);
 
-	pollres = WaitressPollLoop (waith->request.sockfd, POLLOUT,
-			waith->timeout);
+	memset (&tv, 0, sizeof (tv));
+	tv.tv_sec = waith->timeout;
+
+	FD_ZERO (&fds);
+	FD_SET (waith->request.sockfd, &fds);
+
+	pollres = select (waith->request.sockfd, &fds, &fds, &fds, &tv);
 	freeaddrinfo (res);
 	if (pollres == 0) {
 		return WAITRESS_RET_TIMEOUT;
@@ -777,8 +872,7 @@ static WaitressReturn_t WaitressConnect (WaitressHandle_t *waith) {
 		return WAITRESS_RET_ERR;
 	}
 	/* check connect () return value */
-	socklen_t pollresSize = sizeof (pollres);
-	getsockopt (waith->request.sockfd, SOL_SOCKET, SO_ERROR, &pollres,
+	waitress_getsockopt (waith->request.sockfd, SOL_SOCKET, SO_ERROR, &pollres,
 			&pollresSize);
 	if (pollres != 0) {
 		return WAITRESS_RET_CONNECT_REFUSED;
@@ -789,10 +883,22 @@ static WaitressReturn_t WaitressConnect (WaitressHandle_t *waith) {
 		if (WaitressProxyEnabled (waith)) {
 			char buf[256];
 			size_t size;
-			snprintf (buf, sizeof (buf), "CONNECT %s:%s HTTP/"
-					WAITRESS_HTTP_VERSION "\r\n\r\n",
+			waitress_snprintf (buf, sizeof (buf), "CONNECT %s:%s HTTP/"
+					WAITRESS_HTTP_VERSION "\r\n",
 					waith->url.host, WaitressDefaultPort (&waith->url));
 			WaitressOrdinaryWrite (waith, buf, strlen (buf));
+
+			/* write authorization headers */
+			if (WaitressFormatAuthorization (waith, &waith->url, "", buf,
+					WAITRESS_BUFFER_SIZE)) {
+				WaitressOrdinaryWrite (waith, buf, strlen (buf));
+			}
+			if (WaitressFormatAuthorization (waith, &waith->proxy, "Proxy-",
+					buf, WAITRESS_BUFFER_SIZE)) {
+				WaitressOrdinaryWrite (waith, buf, strlen (buf));
+			}
+
+			WaitressOrdinaryWrite (waith, "\r\n", 2);
 
 			WaitressOrdinaryRead (waith, buf, sizeof (buf)-1, &size);
 			buf[size] = 0;
@@ -820,13 +926,15 @@ static WaitressReturn_t WaitressSendRequest (WaitressHandle_t *waith) {
 		if ((wRet = waith->request.write (waith, buf, count)) != WAITRESS_RET_OK) { \
 			return wRet; \
 		}
+	const char *path;
+	char * buf;
+	WaitressReturn_t wRet = WAITRESS_RET_OK;
 
 	assert (waith != NULL);
 	assert (waith->request.buf != NULL);
 
-	const char *path = waith->url.path;
-	char * const buf = waith->request.buf;
-	WaitressReturn_t wRet = WAITRESS_RET_OK;
+	path = waith->url.path;
+	buf = waith->request.buf;
 
 	if (waith->url.path == NULL) {
 		/* avoid NULL pointer deref */
@@ -838,27 +946,27 @@ static WaitressReturn_t WaitressSendRequest (WaitressHandle_t *waith) {
 
 	/* send request */
 	if (WaitressProxyEnabled (waith) && !waith->url.tls) {
-		snprintf (buf, WAITRESS_BUFFER_SIZE,
+		waitress_snprintf (buf, WAITRESS_BUFFER_SIZE,
 			"%s http://%s:%s/%s HTTP/" WAITRESS_HTTP_VERSION "\r\n",
 			(waith->method == WAITRESS_METHOD_GET ? "GET" : "POST"),
 			waith->url.host,
 			WaitressDefaultPort (&waith->url), path);
 	} else {
-		snprintf (buf, WAITRESS_BUFFER_SIZE,
+		waitress_snprintf (buf, WAITRESS_BUFFER_SIZE,
 			"%s /%s HTTP/" WAITRESS_HTTP_VERSION "\r\n",
 			(waith->method == WAITRESS_METHOD_GET ? "GET" : "POST"),
 			path);
 	}
 	WRITE_RET (buf, strlen (buf));
 
-	snprintf (buf, WAITRESS_BUFFER_SIZE,
+	waitress_snprintf (buf, WAITRESS_BUFFER_SIZE,
 			"Host: %s\r\nUser-Agent: " PACKAGE "\r\nConnection: Close\r\n",
 			waith->url.host);
 	WRITE_RET (buf, strlen (buf));
 
 	if (waith->method == WAITRESS_METHOD_POST && waith->postData != NULL) {
-		snprintf (buf, WAITRESS_BUFFER_SIZE, "Content-Length: %zu\r\n",
-				strlen (waith->postData));
+		waitress_snprintf (buf, WAITRESS_BUFFER_SIZE, "Content-Length: "
+				waitress_size_t_spec "\r\n", strlen (waith->postData));
 		WRITE_RET (buf, strlen (buf));
 	}
 
@@ -871,11 +979,11 @@ static WaitressReturn_t WaitressSendRequest (WaitressHandle_t *waith) {
 			buf, WAITRESS_BUFFER_SIZE)) {
 		WRITE_RET (buf, strlen (buf));
 	}
-	
+
 	if (waith->extraHeaders != NULL) {
 		WRITE_RET (waith->extraHeaders, strlen (waith->extraHeaders));
 	}
-	
+
 	WRITE_RET ("\r\n", 2);
 
 	if (waith->method == WAITRESS_METHOD_POST && waith->postData != NULL) {
@@ -894,16 +1002,17 @@ static WaitressReturn_t WaitressReceiveResponse (WaitressHandle_t *waith) {
 				WAITRESS_RET_OK) { \
 			return wRet; \
 		}
-
-	assert (waith != NULL);
-	assert (waith->request.buf != NULL);
-
-	char * const buf = waith->request.buf;
+	char * buf;
 	char *nextLine = NULL, *thisLine = NULL;
 	enum {HDRM_HEAD, HDRM_LINES, HDRM_FINISHED} hdrParseMode = HDRM_HEAD;
 	ssize_t recvSize = 0;
 	size_t bufFilled = 0;
 	WaitressReturn_t wRet = WAITRESS_RET_OK;
+
+	assert (waith != NULL);
+	assert (waith->request.buf != NULL);
+
+	buf = waith->request.buf;
 
 	/* receive answer */
 	nextLine = buf;
@@ -1059,7 +1168,7 @@ WaitressReturn_t WaitressFetchCall (WaitressHandle_t *waith) {
 		gnutls_deinit (waith->request.tlsSession);
 		gnutls_certificate_free_credentials (waith->tlsCred);
 	}
-	close (waith->request.sockfd);
+	waitress_close (waith->request.sockfd);
 
 	if (wRet == WAITRESS_RET_OK &&
 			waith->request.contentReceived < waith->request.contentLength) {
@@ -1085,7 +1194,7 @@ const char *WaitressErrorToStr (WaitressReturn_t wRet) {
 		case WAITRESS_RET_NOTFOUND:
 			return "File not found.";
 			break;
-		
+
 		case WAITRESS_RET_FORBIDDEN:
 			return "Forbidden.";
 			break;
@@ -1109,7 +1218,7 @@ const char *WaitressErrorToStr (WaitressReturn_t wRet) {
 		case WAITRESS_RET_PARTIAL_FILE:
 			return "Partial file.";
 			break;
-	
+
 		case WAITRESS_RET_TIMEOUT:
 			return "Timeout.";
 			break;
@@ -1176,12 +1285,11 @@ static void compareUrl (const char *url, const char *user,
 		const char *password, const char *host, const char *port,
 		const char *path) {
 	WaitressUrl_t splitUrl;
+	bool userTest, passwordTest, hostTest, portTest, pathTest, overallTest;
 
 	memset (&splitUrl, 0, sizeof (splitUrl));
 
 	WaitressSplitUrl (url, &splitUrl);
-
-	bool userTest, passwordTest, hostTest, portTest, pathTest, overallTest;
 
 	userTest = streqtest (splitUrl.user, user);
 	passwordTest = streqtest (splitUrl.password, password);

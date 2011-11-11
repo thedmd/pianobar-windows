@@ -39,6 +39,10 @@ THE SOFTWARE.
 #include "config.h"
 #include "ui_dispatch.h"
 
+#ifndef PATH_MAX
+#define PATH_MAX 260
+#endif
+
 #define streq(a, b) (strcmp (a, b) == 0)
 
 /*	tries to guess your config dir; somehow conforming to
@@ -55,16 +59,16 @@ void BarGetXdgConfigDir (const char *filename, char *retDir,
 	if ((xdgConfigDir = getenv ("XDG_CONFIG_HOME")) != NULL &&
 			strlen (xdgConfigDir) > 0) {
 		/* special dir: $xdg_config_home */
-		snprintf (retDir, retDirN, "%s/%s", xdgConfigDir, filename);
+		bar_snprintf (retDir, retDirN, "%s/%s", xdgConfigDir, filename);
 	} else {
 		if ((xdgConfigDir = getenv ("HOME")) != NULL &&
 				strlen (xdgConfigDir) > 0) {
 			/* standard config dir: $home/.config */
-			snprintf (retDir, retDirN, "%s/.config/%s", xdgConfigDir,
+			bar_snprintf (retDir, retDirN, "%s/.config/%s", xdgConfigDir,
 					filename);
 		} else {
 			/* fallback: working dir */
-			snprintf (retDir, retDirN, "%s", filename);
+			bar_snprintf (retDir, retDirN, "%s", filename);
 		}
 	}
 }
@@ -74,12 +78,18 @@ void BarGetXdgConfigDir (const char *filename, char *retDir,
  */
 void BarSettingsInit (BarSettings_t *settings) {
 	memset (settings, 0, sizeof (*settings));
+
+# ifdef _WIN32
+	settings->width = 160;
+	settings->height = 40;
+# endif
 }
 
 /*	free settings structure, zero it afterwards
  *	@oaram pointer to struct
  */
 void BarSettingsDestroy (BarSettings_t *settings) {
+	size_t i;
 	free (settings->controlProxy);
 	free (settings->proxy);
 	free (settings->username);
@@ -93,7 +103,7 @@ void BarSettingsDestroy (BarSettings_t *settings) {
 	free (settings->npStationFormat);
 	free (settings->listSongFormat);
 	free (settings->fifo);
-	for (size_t i = 0; i < MSG_COUNT; i++) {
+	for (i = 0; i < MSG_COUNT; i++) {
 		free (settings->msgFormat[i].prefix);
 		free (settings->msgFormat[i].postfix);
 	}
@@ -105,6 +115,7 @@ void BarSettingsDestroy (BarSettings_t *settings) {
  *	@return nothing yet
  */
 void BarSettingsRead (BarSettings_t *settings) {
+	size_t i;
 	char configfile[PATH_MAX], key[256], val[256];
 	FILE *configfd;
 	static const char *formatMsgPrefix = "format_msg_";
@@ -123,38 +134,46 @@ void BarSettingsRead (BarSettings_t *settings) {
 	settings->history = 5;
 	settings->volume = 0;
 	settings->sortOrder = BAR_SORT_NAME_AZ;
-	settings->loveIcon = strdup (" <3");
-	settings->banIcon = strdup (" </3");
-	settings->atIcon = strdup (" @ ");
-	settings->npSongFormat = strdup ("\"%t\" by \"%a\" on \"%l\"%r%@%s");
-	settings->npStationFormat = strdup ("Station \"%n\" (%i)");
-	settings->listSongFormat = strdup ("%i) %a - %t%r");
+	settings->loveIcon = bar_strdup (" <3");
+	settings->banIcon = bar_strdup (" </3");
+	settings->atIcon = bar_strdup (" @ ");
+	settings->npSongFormat = bar_strdup ("\"%t\" by \"%a\" on \"%l\"%r%@%s");
+	settings->npStationFormat = bar_strdup ("Station \"%n\" (%i)");
+	settings->listSongFormat = bar_strdup ("%i) %a - %t%r");
 	settings->fifo = malloc (PATH_MAX * sizeof (*settings->fifo));
-	BarGetXdgConfigDir (PACKAGE "/ctl", settings->fifo, PATH_MAX);
 	memcpy (settings->tlsFingerprint, "\xD9\x98\x0B\xA2\xCC\x0F\x97\xBB"
 			"\x03\x82\x2C\x62\x11\xEA\xEA\x4A\x06\xEE\xF4\x27",
 			sizeof (settings->tlsFingerprint));
+	#ifdef _WIN32
+	strncpy (settings->fifo, "\\\\.\\pipe\\" PACKAGE "\\ctl", PATH_MAX);
+	#else
+	BarGetXdgConfigDir (PACKAGE "/ctl", settings->fifo, PATH_MAX);
+	#endif
 
 	settings->msgFormat[MSG_NONE].prefix = NULL;
 	settings->msgFormat[MSG_NONE].postfix = NULL;
-	settings->msgFormat[MSG_INFO].prefix = strdup ("(i) ");
+	settings->msgFormat[MSG_INFO].prefix = bar_strdup ("(i) ");
 	settings->msgFormat[MSG_INFO].postfix = NULL;
-	settings->msgFormat[MSG_PLAYING].prefix = strdup ("|>  ");
+	settings->msgFormat[MSG_PLAYING].prefix = bar_strdup ("|>  ");
 	settings->msgFormat[MSG_PLAYING].postfix = NULL;
-	settings->msgFormat[MSG_TIME].prefix = strdup ("#   ");
+	settings->msgFormat[MSG_TIME].prefix = bar_strdup ("#   ");
 	settings->msgFormat[MSG_TIME].postfix = NULL;
-	settings->msgFormat[MSG_ERR].prefix = strdup ("/!\\ ");
+	settings->msgFormat[MSG_ERR].prefix = bar_strdup ("/!\\ ");
 	settings->msgFormat[MSG_ERR].postfix = NULL;
-	settings->msgFormat[MSG_QUESTION].prefix = strdup ("[?] ");
+	settings->msgFormat[MSG_QUESTION].prefix = bar_strdup ("[?] ");
 	settings->msgFormat[MSG_QUESTION].postfix = NULL;
-	settings->msgFormat[MSG_LIST].prefix = strdup ("\t");
+	settings->msgFormat[MSG_LIST].prefix = bar_strdup ("\t");
 	settings->msgFormat[MSG_LIST].postfix = NULL;
 
-	for (size_t i = 0; i < BAR_KS_COUNT; i++) {
+	for (i = 0; i < BAR_KS_COUNT; i++) {
 		settings->keys[i] = dispatchActions[i].defaultKey;
 	}
 
+	#ifdef _WIN32
+	strncpy (configfile, PACKAGE ".cfg", sizeof (configfile));
+	#else
 	BarGetXdgConfigDir (PACKAGE "/config", configfile, sizeof (configfile));
+	#endif
 	if ((configfd = fopen (configfile, "r")) == NULL) {
 		return;
 	}
@@ -170,13 +189,13 @@ void BarSettingsRead (BarSettings_t *settings) {
 			continue;
 		}
 		if (streq ("control_proxy", key)) {
-			settings->controlProxy = strdup (val);
+			settings->controlProxy = bar_strdup (val);
 		} else if (streq ("proxy", key)) {
-			settings->proxy = strdup (val);
+			settings->proxy = bar_strdup (val);
 		} else if (streq ("user", key)) {
-			settings->username = strdup (val);
+			settings->username = bar_strdup (val);
 		} else if (streq ("password", key)) {
-			settings->password = strdup (val);
+			settings->password = bar_strdup (val);
 		} else if (memcmp ("act_", key, 4) == 0) {
 			size_t i;
 			/* keyboard shortcuts */
@@ -199,9 +218,9 @@ void BarSettingsRead (BarSettings_t *settings) {
 				settings->audioFormat = PIANO_AF_MP3_HI;
 			}
 		} else if (streq ("autostart_station", key)) {
-			settings->autostartStation = strdup (val);
+			settings->autostartStation = bar_strdup (val);
 		} else if (streq ("event_command", key)) {
-			settings->eventCmd = strdup (val);
+			settings->eventCmd = bar_strdup (val);
 		} else if (streq ("history", key)) {
 			settings->history = atoi (val);
 		} else if (streq ("sort", key)) {
@@ -221,35 +240,42 @@ void BarSettingsRead (BarSettings_t *settings) {
 			}
 		} else if (streq ("love_icon", key)) {
 			free (settings->loveIcon);
-			settings->loveIcon = strdup (val);
+			settings->loveIcon = bar_strdup (val);
 		} else if (streq ("ban_icon", key)) {
 			free (settings->banIcon);
-			settings->banIcon = strdup (val);
+			settings->banIcon = bar_strdup (val);
 		} else if (streq ("at_icon", key)) {
 			free (settings->atIcon);
-			settings->atIcon = strdup (val);
+			settings->atIcon = bar_strdup (val);
 		} else if (streq ("volume", key)) {
 			settings->volume = atoi (val);
+		#ifdef _WIN32
+		} else if (streq ("width", key)) {
+			settings->width = atoi (val);
+		} else if (streq ("height", key)) {
+			settings->height = atoi (val);
+		#endif
 		} else if (streq ("format_nowplaying_song", key)) {
 			free (settings->npSongFormat);
-			settings->npSongFormat = strdup (val);
+			settings->npSongFormat = bar_strdup (val);
 		} else if (streq ("format_nowplaying_station", key)) {
 			free (settings->npStationFormat);
-			settings->npStationFormat = strdup (val);
+			settings->npStationFormat = bar_strdup (val);
 		} else if (streq ("format_list_song", key)) {
 			free (settings->listSongFormat);
-			settings->listSongFormat = strdup (val);
+			settings->listSongFormat = bar_strdup (val);
 		} else if (streq ("fifo", key)) {
 			free (settings->fifo);
-			settings->fifo = strdup (val);
+			settings->fifo = bar_strdup (val);
 		} else if (streq ("tls_fingerprint", key)) {
 			/* expects 40 byte hex-encoded sha1 */
 			if (strlen (val) == 40) {
-				for (size_t i = 0; i < 20; i++) {
+				size_t i;
+				for (i = 0; i < 20; i++) {
 					char hex[3];
 					memcpy (hex, &val[i*2], 2);
 					hex[2] = '\0';
-					settings->tlsFingerprint[i] = strtol (hex, NULL, 16);
+					settings->tlsFingerprint[i] = (char)strtol (hex, NULL, 16);
 				}
 			}
 		} else if (strncmp (formatMsgPrefix, key,
@@ -257,23 +283,25 @@ void BarSettingsRead (BarSettings_t *settings) {
 			static const char *mapping[] = {"none", "info", "nowplaying",
 					"time", "err", "question", "list"};
 			const char *typeStart = key + strlen (formatMsgPrefix);
-			for (size_t i = 0; i < sizeof (mapping) / sizeof (*mapping); i++) {
+			size_t i;
+			for (i = 0; i < sizeof (mapping) / sizeof (*mapping); i++) {
 				if (streq (typeStart, mapping[i])) {
 					const char *formatPos = strstr (val, "%s");
 					
 					/* keep default if there is no format character */
 					if (formatPos != NULL) {
 						BarMsgFormatStr_t *format = &settings->msgFormat[i];
+						size_t prefixLen, postfixLen;
 
 						free (format->prefix);
 						free (format->postfix);
 
-						const size_t prefixLen = formatPos - val;
+						prefixLen = formatPos - val;
 						format->prefix = calloc (prefixLen + 1,
 								sizeof (*format->prefix));
 						memcpy (format->prefix, val, prefixLen);
 
-						const size_t postfixLen = strlen (val) -
+						postfixLen = strlen (val) -
 								(formatPos-val) - 2;
 						format->postfix = calloc (postfixLen + 1,
 								sizeof (*format->postfix));
@@ -289,7 +317,7 @@ void BarSettingsRead (BarSettings_t *settings) {
 	if (settings->proxy == NULL) {
 		char *tmpProxy = getenv ("http_proxy");
 		if (tmpProxy != NULL && strlen (tmpProxy) > 0) {
-			settings->proxy = strdup (tmpProxy);
+			settings->proxy = bar_strdup (tmpProxy);
 		}
 	}
 

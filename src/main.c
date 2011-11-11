@@ -32,7 +32,6 @@ THE SOFTWARE.
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <sys/select.h>
 #include <time.h>
 #include <ctype.h>
 /* open () */
@@ -40,7 +39,14 @@ THE SOFTWARE.
 #include <sys/stat.h>
 #include <fcntl.h>
 /* tcset/getattr () */
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#else
 #include <termios.h>
+#include <sys/select.h>
+typedef struct termios termios;
+#endif
 #include <pthread.h>
 #include <assert.h>
 #include <stdbool.h>
@@ -55,6 +61,7 @@ THE SOFTWARE.
 #include "ui.h"
 #include "ui_dispatch.h"
 #include "ui_readline.h"
+
 
 /*	copy proxy settings to waitress handle
  */
@@ -97,14 +104,13 @@ static void BarMainGetLoginCredentials (BarSettings_t *settings,
 		char nameBuf[100];
 		BarUiMsg (settings, MSG_QUESTION, "Email: ");
 		BarReadlineStr (nameBuf, sizeof (nameBuf), input, BAR_RL_DEFAULT);
-		settings->username = strdup (nameBuf);
+		settings->username = bar_strdup (nameBuf);
 	}
 	if (settings->password == NULL) {
 		char passBuf[100];
 		BarUiMsg (settings, MSG_QUESTION, "Password: ");
-		BarReadlineStr (passBuf, sizeof (passBuf), input, BAR_RL_NOECHO);
-		write (STDIN_FILENO, "\n", 1);
-		settings->password = strdup (passBuf);
+		BarReadlineStr (passBuf, sizeof (passBuf), input, BAR_RL_PASSWORD);
+		settings->password = bar_strdup (passBuf);
 	}
 }
 
@@ -326,15 +332,25 @@ static void BarMainLoop (BarApp_t *app) {
 
 int main (int argc, char **argv) {
 	static BarApp_t app;
+	#ifndef _WIN32
 	/* terminal attributes _before_ we started messing around with ~ECHO */
 	struct termios termOrig;
+	#endif
+	char *host = NULL;
 
 	memset (&app, 0, sizeof (app));
-
+	
+	#ifdef _WIN32
+	/* initialize console window */
+	SetConsoleCP(65001); // UTF-8
+	SetConsoleOutputCP(65001); // UTF-8
+	SetConsoleTitleW(L"pianobar - Pandora Radio Client");
+	#else
 	/* save terminal attributes, before disabling echoing */
 	BarTermSave (&termOrig);
 	BarTermSetEcho (0);
 	BarTermSetBuffer (0);
+	#endif
 
 	/* init some things */
 	ao_initialize ();
@@ -343,6 +359,10 @@ int main (int argc, char **argv) {
 
 	BarSettingsInit (&app.settings);
 	BarSettingsRead (&app.settings);
+
+	#ifdef _WIN32
+	BarConsoleSetSizeWin32 (app.settings.width, app.settings.height);
+	#endif
 
 	BarUiMsg (&app.settings, MSG_NONE,
 			"Welcome to " PACKAGE " (" VERSION ")! ");
@@ -355,11 +375,12 @@ int main (int argc, char **argv) {
 	}
 
 	WaitressInit (&app.waith);
-	app.waith.url.host = strdup (PIANO_RPC_HOST);
+	app.waith.url.host = (host = bar_strdup (PIANO_RPC_HOST));
 	app.waith.url.tls = true;
 	app.waith.tlsFingerprint = app.settings.tlsFingerprint;
 
 	/* init fds */
+	#ifndef _WIN32
 	FD_ZERO(&app.input.set);
 	app.input.fds[0] = STDIN_FILENO;
 	FD_SET(app.input.fds[0], &app.input.set);
@@ -367,7 +388,8 @@ int main (int argc, char **argv) {
 	/* open fifo read/write so it won't EOF if nobody writes to it */
 	assert (sizeof (app.input.fds) / sizeof (*app.input.fds) >= 2);
 	app.input.fds[1] = open (app.settings.fifo, O_RDWR);
-	if (app.input.fds[1] != -1) {
+	if (app.input.fds[1] != -1)
+	{
 		FD_SET(app.input.fds[1], &app.input.set);
 		BarUiMsg (&app.settings, MSG_INFO, "Control fifo at %s opened\n",
 				app.settings.fifo);
@@ -375,12 +397,15 @@ int main (int argc, char **argv) {
 	app.input.maxfd = app.input.fds[0] > app.input.fds[1] ? app.input.fds[0] :
 			app.input.fds[1];
 	++app.input.maxfd;
+	#endif
 
 	BarMainLoop (&app);
 
+	#ifndef _WIN32
 	if (app.input.fds[1] != -1) {
 		close (app.input.fds[1]);
 	}
+	#endif
 
 	PianoDestroy (&app.ph);
 	PianoDestroyPlaylist (app.songHistory);
@@ -390,8 +415,12 @@ int main (int argc, char **argv) {
 	gnutls_global_deinit ();
 	BarSettingsDestroy (&app.settings);
 
+	#ifndef _WIN32
 	/* restore terminal attributes, zsh doesn't need this, bash does... */
 	BarTermRestore (&termOrig);
+	#endif
+
+	free (host);
 
 	return 0;
 }

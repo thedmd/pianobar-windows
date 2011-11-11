@@ -97,6 +97,10 @@ typedef struct {
 	char *listSongFormat;
 	char *fifo;
 	char tlsFingerprint[20];
+#ifdef _WIN32
+	int width;
+	int height;
+#endif
 	BarMsgFormatStr_t msgFormat[MSG_COUNT];
 } BarSettings_t;
 

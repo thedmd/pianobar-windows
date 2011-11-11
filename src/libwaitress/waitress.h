@@ -25,8 +25,8 @@ THE SOFTWARE.
 #define _WAITRESS_H
 
 #include <stdlib.h>
-#include <unistd.h>
 #include <stdbool.h>
+#include <unistd.h>
 #include <gnutls/gnutls.h>
 
 #define WAITRESS_BUFFER_SIZE 10*1024

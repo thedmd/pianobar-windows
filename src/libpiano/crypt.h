@@ -24,7 +24,7 @@ THE SOFTWARE.
 #ifndef _CRYPH_H
 #define _CRYPT_H
 
-char *PianoDecryptString (const char *strInput);
-char *PianoEncryptString (const char *strInput);
+unsigned char *PianoDecryptString (const unsigned char *strInput);
+unsigned char *PianoEncryptString (const unsigned char *strInput);
 
 #endif /* _CRYPT_H */

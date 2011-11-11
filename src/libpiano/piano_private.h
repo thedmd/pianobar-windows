@@ -21,11 +21,19 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#ifndef _MAIN_H
-#define _MAIN_H
+#ifndef _PIANO_PRIVATE_H
+#define _PIANO_PRIVATE_H
 
 #include "piano.h"
 
+#ifdef _MSC_VER
+#define piano_strdup	_strdup
+#define piano_snprintf	_snprintf
+#else
+#define piano_strdup	strdup
+#define piano_snprintf	snprintf
+#endif
+
 void PianoDestroyStation (PianoStation_t *station);
 
-#endif /* _MAIN_H */
+#endif /* _PIANO_PRIVATE_H */
