@@ -514,7 +514,8 @@ static ssize_t WaitressPollWrite (void *data, const void *buf, size_t count) {
 
 	/* FIXME: simplify logic */
 	memset (&tv, 0, sizeof (tv));
-	tv.tv_sec = waith->timeout;
+	tv.tv_sec = waith->timeout / 1000;
+	tv.tv_usec = (waith->timeout % 1000) * 1000;
 
 	FD_ZERO (&fds);
 	FD_SET (waith->request.sockfd, &fds);
@@ -570,7 +571,8 @@ static ssize_t WaitressPollRead (void *data, void *buf, size_t count) {
 	assert (buf != NULL);
 
 	memset (&tv, 0, sizeof (tv));
-	tv.tv_sec = waith->timeout;
+	tv.tv_sec = waith->timeout / 1000;
+	tv.tv_usec = (waith->timeout % 1000) * 1000;
 
 	/* FIXME: simplify logic */
 	FD_ZERO (&fds);
@@ -871,7 +873,8 @@ static WaitressReturn_t WaitressConnect (WaitressHandle_t *waith) {
 	connect (waith->request.sockfd, res->ai_addr, res->ai_addrlen);
 
 	memset (&tv, 0, sizeof (tv));
-	tv.tv_sec = waith->timeout;
+	tv.tv_sec = waith->timeout / 1000;
+	tv.tv_usec = (waith->timeout % 1000) * 1000;
 
 	FD_ZERO (&fds);
 	FD_SET (waith->request.sockfd, &fds);
