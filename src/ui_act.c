@@ -49,8 +49,10 @@ THE SOFTWARE.
 static INLINE void BarUiDoSkipSong (struct audioPlayer *player) {
 	assert (player != NULL);
 
-	player->doQuit = 1;
-	pthread_mutex_unlock (&player->pauseMutex);
+	if (player->mode != PLAYER_FREED) {
+		player->doQuit = 1;
+		pthread_mutex_unlock (&player->pauseMutex);
+	}
 }
 
 /*	transform station if necessary to allow changes like rename, rate, ...
