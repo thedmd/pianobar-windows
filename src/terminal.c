@@ -117,6 +117,27 @@ void BarConsoleSetSizeWin32 (int width, int height) {
 	SetConsoleWindowInfo (handle, TRUE, &r);
 }
 
+void BarConsoleSetTitle (const char* title) {
+	size_t len = MultiByteToWideChar(CP_UTF8, 0, title, -1, NULL, 0);
+
+	TCHAR* wTitle = malloc ((len + 1) * sizeof (TCHAR));
+	if (NULL != wTitle)
+	{
+		MultiByteToWideChar(CP_UTF8, 0, title, -1, wTitle, len);
+		SetConsoleTitleW (wTitle);
+		
+		free(wTitle);
+	}
+	else
+		SetConsoleTitleA (title);
+}
+
+void BarConsoleInitialize (void) {
+	SetConsoleCP (CP_UTF8);
+	SetConsoleOutputCP (CP_UTF8);
+}
+
+
 #else /* _WIN32 */
 
 #include <termios.h>

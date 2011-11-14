@@ -63,6 +63,9 @@ typedef struct termios termios;
 #include "ui_readline.h"
 
 
+#define BAR_MAIN_DEFAULT_TITLE "pianobar - Pandora Radio Client"
+
+
 /*	copy proxy settings to waitress handle
  */
 static void BarMainLoadProxy (const BarSettings_t *settings,
@@ -246,6 +249,27 @@ static void BarMainPlayerCleanup (BarApp_t *app, pthread_t *playerThread) {
 	memset (&app->player, 0, sizeof (app->player));
 }
 
+/*	print status on title bar
+ */
+static void BarMainPrintTitle (BarApp_t *app) {
+	#if _WIN32
+	if (app->player.mode < PLAYER_STARTING ||
+		app->player.mode >= PLAYER_FINISHED_PLAYBACK) {
+			BarConsoleSetTitle (BAR_MAIN_DEFAULT_TITLE);
+	}
+	else {
+		char buf[512];
+		PianoSong_t *song = app->playlist;
+
+		bar_snprintf (buf, 511, "\"%s\" by \"%s\" on \"%s\" - %s",
+				song->title, song->artist, song->album,
+				BAR_MAIN_DEFAULT_TITLE);
+
+		BarConsoleSetTitle (buf);
+	}
+	#endif
+}
+
 /*	print song duration
  */
 static void BarMainPrintTime (BarApp_t *app) {
@@ -293,6 +317,8 @@ static void BarMainLoop (BarApp_t *app) {
 		/* song finished playing, clean up things/scrobble song */
 		if (app->player.mode == PLAYER_FINISHED_PLAYBACK) {
 			BarMainPlayerCleanup (app, &playerThread);
+
+			BarMainPrintTitle (app);
 		}
 
 		/* check whether player finished playing and start playing new
@@ -313,6 +339,8 @@ static void BarMainLoop (BarApp_t *app) {
 				if (app->playlist != NULL) {
 					BarMainStartPlayback (app, &playerThread);
 				}
+
+				BarMainPrintTitle (app);
 			}
 		}
 
@@ -342,9 +370,8 @@ int main (int argc, char **argv) {
 	
 	#ifdef _WIN32
 	/* initialize console window */
-	SetConsoleCP(65001); // UTF-8
-	SetConsoleOutputCP(65001); // UTF-8
-	SetConsoleTitleW(L"pianobar - Pandora Radio Client");
+	BarConsoleInitialize ();
+	BarConsoleSetTitle(BAR_MAIN_DEFAULT_TITLE);
 	#else
 	/* save terminal attributes, before disabling echoing */
 	BarTermSave (&termOrig);
@@ -354,7 +381,6 @@ int main (int argc, char **argv) {
 
 	/* init some things */
 	ao_initialize ();
-	gnutls_global_init ();
 	PianoInit (&app.ph);
 
 	BarSettingsInit (&app.settings);
@@ -412,7 +438,6 @@ int main (int argc, char **argv) {
 	PianoDestroyPlaylist (app.playlist);
 	WaitressFree (&app.waith);
 	ao_shutdown();
-	gnutls_global_deinit ();
 	BarSettingsDestroy (&app.settings);
 
 	#ifndef _WIN32

@@ -79,8 +79,6 @@ THE SOFTWARE.
 #include <errno.h>
 #include <assert.h>
 
-#include <gnutls/x509.h>
-
 #include "config.h"
 #include "waitress.h"
 
@@ -536,7 +534,7 @@ static WaitressReturn_t WaitressGnutlsWrite (void *data, const char *buf,
 		const size_t size) {
 	WaitressHandle_t *waith = data;
 
-	if (gnutls_record_send (waith->request.tlsSession, buf, size) < 0) {
+	if (ssl_write (waith->request.ssl, buf, size) < 0) {
 		return WAITRESS_RET_TLS_WRITE_ERR;
 	}
 	return waith->request.readWriteRet;
@@ -595,13 +593,26 @@ static WaitressReturn_t WaitressOrdinaryRead (void *data, char *buf,
 static WaitressReturn_t WaitressGnutlsRead (void *data, char *buf,
 		const size_t size, ssize_t *retSize) {
 	WaitressHandle_t *waith = data;
+	uint8_t *read_buf;
+	ssize_t ret;
 
-	ssize_t ret = gnutls_record_recv (waith->request.tlsSession, buf, size);
-	if (ret < 0) {
-		return WAITRESS_RET_TLS_READ_ERR;
-	} else {
-		*retSize = ret;
+	while ((ret = ssl_read(waith->request.ssl, &read_buf)) == SSL_OK)
+		/* continue */;
+
+	if (ret == SSL_CLOSE_NOTIFY) {
+		*retSize = 0;
+		waith->request.readWriteRet = WAITRESS_RET_OK;
+		return waith->request.readWriteRet;
 	}
+
+	if (ret < SSL_OK)
+		return WAITRESS_RET_TLS_READ_ERR;
+
+	*retSize = (size_t)ret > size ? (ssize_t)size : ret;
+
+	if (ret > SSL_OK)
+		memcpy(buf, read_buf, *retSize);
+
 	return waith->request.readWriteRet;
 }
 
@@ -776,43 +787,19 @@ static int WaitressParseStatusline (const char * const line) {
 /*	verify server certificate
  */
 static int WaitressTlsVerify (const WaitressHandle_t *waith) {
-	gnutls_session_t session = waith->request.tlsSession;
-	unsigned int certListSize;
-	const gnutls_datum_t *certList;
-	gnutls_x509_crt_t cert;
-	char fingerprint[20];
-	size_t fingerprintSize = sizeof (fingerprint);
+	int res = ssl_verify_cert (waith->request.ssl);
 
-	if (gnutls_certificate_type_get (session) != GNUTLS_CRT_X509) {
-		return GNUTLS_E_CERTIFICATE_ERROR;
+	if (res == SSL_X509_ERROR(X509_OK))
+		return 0;
+	else if (res == SSL_X509_ERROR(X509_VFY_ERROR_NO_TRUSTED_CERT))
+	{
+		/* accept certificate if fingerprint are identical */
+		if (memcmp (waith->request.ssl->x509_ctx->sha1_fingerprint,
+				waith->tlsFingerprint, sizeof (waith->tlsFingerprint)) == 0)
+			return 0;
 	}
 
-	if ((certList = gnutls_certificate_get_peers (session,
-			&certListSize)) == NULL) {
-		return GNUTLS_E_CERTIFICATE_ERROR;
-	}
-
-	if (gnutls_x509_crt_init (&cert) != GNUTLS_E_SUCCESS) {
-		return GNUTLS_E_CERTIFICATE_ERROR;
-	}
-
-	if (gnutls_x509_crt_import (cert, &certList[0],
-			GNUTLS_X509_FMT_DER) != GNUTLS_E_SUCCESS) {
-		return GNUTLS_E_CERTIFICATE_ERROR;
-	}
-
-	if (gnutls_x509_crt_get_fingerprint (cert, GNUTLS_DIG_SHA1, fingerprint,
-			&fingerprintSize) != 0) {
-		return GNUTLS_E_CERTIFICATE_ERROR;
-	}
-
-	if (memcmp (fingerprint, waith->tlsFingerprint, sizeof (fingerprint)) != 0) {
-		return GNUTLS_E_CERTIFICATE_ERROR;
-	}
-
-	gnutls_x509_crt_deinit (cert);
-
-	return 0;
+	return -1;
 }
 
 static void WaitressDisableBlocking(int sockfd)
@@ -914,7 +901,7 @@ static WaitressReturn_t WaitressConnect (WaitressHandle_t *waith) {
 			}
 		}
 
-		if (gnutls_handshake (waith->request.tlsSession) != GNUTLS_E_SUCCESS) {
+		if (ssl_client_handshake (waith->request.ssl) != SSL_OK) {
 			return WAITRESS_RET_TLS_HANDSHAKE_ERR;
 		}
 
@@ -1140,23 +1127,12 @@ WaitressReturn_t WaitressFetchCall (WaitressHandle_t *waith) {
 		waith->request.read = WaitressGnutlsRead;
 		waith->request.write = WaitressGnutlsWrite;
 
-		gnutls_init (&waith->request.tlsSession, GNUTLS_CLIENT);
-		gnutls_set_default_priority (waith->request.tlsSession);
-
-		gnutls_certificate_allocate_credentials (&waith->tlsCred);
-		if (gnutls_credentials_set (waith->request.tlsSession,
-				GNUTLS_CRD_CERTIFICATE,
-				waith->tlsCred) != GNUTLS_E_SUCCESS) {
-			return WAITRESS_RET_ERR;
-		}
-
-		/* set up custom read/write functions */
-		gnutls_transport_set_ptr (waith->request.tlsSession,
-				(gnutls_transport_ptr_t) waith);
-		gnutls_transport_set_pull_function (waith->request.tlsSession,
-				WaitressPollRead);
-		gnutls_transport_set_push_function (waith->request.tlsSession,
-				WaitressPollWrite);
+		waith->request.sslContex = ssl_ctx_new(SSL_SERVER_VERIFY_LATER, SSL_DEFAULT_CLNT_SESS);
+		waith->request.ssl = ssl_client_new(waith->request.sslContex, waith->request.sockfd, NULL, 0);
+		waith->request.ssl->read_cb = WaitressPollRead;
+		waith->request.ssl->read_ctx = waith;
+		waith->request.ssl->write_cb = WaitressPollWrite;
+		waith->request.ssl->write_ctx = waith;
 	}
 
 	/* request */
@@ -1173,9 +1149,8 @@ WaitressReturn_t WaitressFetchCall (WaitressHandle_t *waith) {
 
 	/* cleanup */
 	if (waith->url.tls) {
-		gnutls_bye (waith->request.tlsSession, GNUTLS_SHUT_RDWR);
-		gnutls_deinit (waith->request.tlsSession);
-		gnutls_certificate_free_credentials (waith->tlsCred);
+		ssl_free (waith->request.ssl);
+		ssl_ctx_free (waith->request.sslContex);
 	}
 	waitress_close (waith->request.sockfd);
 

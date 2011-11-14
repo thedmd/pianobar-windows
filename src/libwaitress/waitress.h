@@ -27,7 +27,7 @@ THE SOFTWARE.
 #include <stdlib.h>
 #include <stdbool.h>
 #include <unistd.h>
-#include <gnutls/gnutls.h>
+#include <axTLS/ssl.h>
 
 #define WAITRESS_BUFFER_SIZE 10*1024
 
@@ -93,14 +93,14 @@ typedef struct {
 	WaitressCbReturn_t (*callback) (void *, size_t, void *);
 	int timeout;
 	const char *tlsFingerprint;
-	gnutls_certificate_credentials_t tlsCred;
 
 	/* per-request data */
 	struct {
 		size_t contentLength, contentReceived, chunkSize;
 		int sockfd;
 		char *buf;
-		gnutls_session_t tlsSession;
+		SSL_CTX *sslContex;
+		SSL* ssl;
 		/* first argument is WaitressHandle_t, but that's not defined yet */
 		WaitressHandlerReturn_t (*dataHandler) (void *, char *, const size_t);
 		WaitressReturn_t (*read) (void *, char *, const size_t, ssize_t *);

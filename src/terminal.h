@@ -35,6 +35,8 @@ COORD BarConsoleGetCursorPositionWin32 (void);
 COORD BarConsoleMoveCursorWin32 (int xoffset);
 void BarConsoleClearLineWin32 (void);
 void BarConsoleSetSizeWin32 (int width, int height);
+void BarConsoleSetTitle (const char* title);
+void BarConsoleInitialize (void);
 
 #else
 
