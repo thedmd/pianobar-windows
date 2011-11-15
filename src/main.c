@@ -150,6 +150,10 @@ static void BarMainGetInitialStation (BarApp_t *app) {
 	if (app->curStation != NULL) {
 		BarUiPrintStation (&app->settings, app->curStation);
 	}
+	else {
+		BarUiMsg (&app->settings, MSG_INFO, "Initial station selection was skipped. "
+			"Press %c for additional help.\n", app->settings.keys[BAR_KS_HELP]);
+	}
 }
 
 /*	wait for user input
