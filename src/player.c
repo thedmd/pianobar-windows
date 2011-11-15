@@ -193,10 +193,11 @@ static WaitressCbReturn_t BarPlayerAACCb (void *ptr, size_t size, void *stream) 
 						"\x05\x80\x80\x80", 4) == 0) {
 					ao_sample_format format;
 					int audioOutDriver;
+					char err;
 
 					/* +1+4 needs to be replaced by <something>! */
 					player->bufferRead += 1+4;
-					char err = NeAACDecInit2 (player->aacHandle, player->buffer +
+					err = NeAACDecInit2 (player->aacHandle, player->buffer +
 							player->bufferRead, 5, &player->samplerate,
 							&player->channels);
 					player->bufferRead += 5;
