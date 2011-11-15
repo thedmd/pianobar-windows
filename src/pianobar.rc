@@ -1,0 +1,36 @@
+#include "config.h"
+
+MAINICON ICON "pianobar.ico"
+
+1 VERSIONINFO
+FILEVERSION		1,0,0,0
+//PRODUCTVERSION  VERSION_MAJOR,VERSION_MINOR,VERSION_BUILD,VERSION_REV
+FILEFLAGSMASK	0X3FL
+FILEFLAGS		0L
+FILEOS			0X40004L
+FILETYPE		0X1
+FILESUBTYPE		0
+BEGIN
+		BLOCK "StringFileInfo"
+		BEGIN
+				BLOCK "040904B0"
+				BEGIN
+						VALUE "Comments", "Ported to Windows by Micha³ Cichoñ <thedmd@interia.pl>"
+						//VALUE "FileVersion", BUILD_VERSION
+						VALUE "ProductVersion", VERSION_WIN32 " based on " VERSION
+#ifdef _DEBUG
+						VALUE "OriginalFilename", PACKAGE "-debug.exe"
+#else
+						VALUE "OriginalFilename", PACKAGE ".exe"
+#endif
+						VALUE "FileDescription", "Native client for Pandora Radio."
+						VALUE "LegalCopyright", "Copyright (C) 2011, Lars-Dominik Braun <lars@6xq.net>"
+						VALUE "ProductName", "pianobar - Pandora Radio Client"
+						VALUE "PrivateBuild", "Micha³ Cichoñ <thedmd@interia.pl>"
+				END
+		END
+		BLOCK "VarFileInfo"
+		BEGIN
+				VALUE "Translation", 0x0409, 0x04B0
+		END
+END
