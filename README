@@ -6,6 +6,12 @@ web radio pandora (http://www.pandora.com). original project resides at
 http://github.com/PromyLOPh/pianobar/
 
 
+BINARIES
+
+Portable Windows binaries are availabla at
+https://github.com/thedmd/pianobar-windows-binaries
+
+
 BUILDING
 
 In order to build pianobar-windows project pianobar-windows-build was created
