@@ -1,16 +1,25 @@
-pianobar
+pianobar-windows
 ========
 
-pianobar is a console client for the personalized web radio pandora
-(http://www.pandora.com).
+pianobar-windows is a native port of console based client for the personalized
+web radio pandora (http://www.pandora.com). original project resides at
+http://github.com/PromyLOPh/pianobar/
 
-- play and manage (create, add more music, delete, rename, ...) your stations
-- rate played songs and let pandora explain why they have been selected
-- show upcoming songs/song history
-- configure keybindings
-- last.fm scrobbling support (external application)
-- proxy support for listeners outside the USA
 
-The sourcecode can be downloaded at http://github.com/PromyLOPh/pianobar/ or
-http://6xq.net/projects/pianobar/
+BUILDING
 
+In order to build pianobar-windows project pianobar-windows-build was created
+(https://github.com/thedmd/pianobar-windows-build), which is complete build
+environment with Microsoft Visual Studio 2008 solution and project files.
+
+
+CHANGES
+
+ - codebase was brought back into pre-C99 in order to comply with Microsoft
+       compiler
+ - GnuTLS was replaced with modified version of axTLS library
+ - libwaitress was adjusted to work also with Windows Sockets
+ - terminal related code was opt-out and replaced by equivalent using
+       Windows console
+ - configuration file reside next to executable and it's named pianobar.cfg
+ - external commands are not supported right now
