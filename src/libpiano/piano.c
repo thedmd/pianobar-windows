@@ -62,7 +62,7 @@ void PianoInit (PianoHandle_t *ph) {
 
 /*	destroy artist linked list
  */
-void PianoDestroyArtists (PianoArtist_t *artists) {
+static void PianoDestroyArtists (PianoArtist_t *artists) {
 	PianoArtist_t *curArtist, *lastArtist;
 
 	curArtist = artists;
@@ -92,13 +92,13 @@ void PianoDestroyStation (PianoStation_t *station) {
 	free (station->name);
 	free (station->id);
 	free (station->seedId);
-	memset (station, 0, sizeof (station));
+	memset (station, 0, sizeof (*station));
 }
 
 /*	free complete station list
  *	@param piano handle
  */
-void PianoDestroyStations (PianoStation_t *stations) {
+static void PianoDestroyStations (PianoStation_t *stations) {
 	PianoStation_t *curStation, *lastStation;
 
 	curStation = stations;
@@ -148,7 +148,7 @@ void PianoDestroyStationInfo (PianoStationInfo_t *info) {
 
 /*	destroy genre linked list
  */
-void PianoDestroyGenres (PianoGenre_t *genres) {
+static void PianoDestroyGenres (PianoGenre_t *genres) {
 	PianoGenre_t *curGenre, *lastGenre;
 
 	curGenre = genres;
@@ -163,7 +163,7 @@ void PianoDestroyGenres (PianoGenre_t *genres) {
 
 /*	destroy user information
  */
-void PianoDestroyUserInfo (PianoUserInfo_t *user) {
+static void PianoDestroyUserInfo (PianoUserInfo_t *user) {
 	free (user->webAuthToken);
 	free (user->authToken);
 	free (user->listenerId);
@@ -237,6 +237,8 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 	assert (req != NULL);
 
 	req->type = type;
+	/* no tls by default */
+	req->secure = false;
 
 	switch (req->type) {
 		case PIANO_REQUEST_LOGIN: {
@@ -258,6 +260,8 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 				case 1: {
 					char *xmlencodedPassword = NULL;
 
+					req->secure = true;
+
 					/* username == email address does not contain &,<,>," */
 					if ((xmlencodedPassword =
 							PianoXmlEncodeString (logindata->password)) ==
@@ -269,8 +273,16 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 							"<?xml version=\"1.0\"?><methodCall>"
 							"<methodName>listener.authenticateListener</methodName>"
 							"<params><param><value><int>%lu</int></value></param>"
+							/* user */
 							"<param><value><string>%s</string></value></param>"
+							/* password */
 							"<param><value><string>%s</string></value></param>"
+							/* vendor */
+							"<param><value><string>html5tuner</string></value></param>"
+							"<param><value><string/></value></param>"
+							"<param><value><string/></value></param>"
+							"<param><value><string>HTML5</string></value></param>"
+							"<param><value><boolean>1</boolean></value></param>"
 							"</params></methodCall>", (unsigned long) timestamp,
 							logindata->user, xmlencodedPassword);
 					piano_snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH

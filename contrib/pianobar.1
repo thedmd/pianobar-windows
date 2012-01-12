@@ -37,8 +37,9 @@ http://xiph.org/ao/doc/config.html
 .SH CONFIGURATION
 The configuration file consists of simple
 .B key = value
-lines. Each terminated with a newline (\\n) character. Keys and values are both
-case sensitive.
+lines, each terminated with a newline (\\n) character. Note that keys and
+values are both case sensitive, and there must be exactly one space on each
+side of the equals sign.
 
 act_* keys control 
 .B pianobar's
@@ -283,7 +284,7 @@ bottom) and name from z to a.
 
 .TP
 .B tls_fingerprint = D9980BA2CC0F97BB03822C6211EAEA4A06EEF427
-Hex-encoded SHA1 fingerprint of Pandora’s TLS certificate.
+Hex-encoded SHA1 fingerprint of Pandora's TLS certificate.
 
 .TP
 .B user = your@user.name

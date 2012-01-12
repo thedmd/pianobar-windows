@@ -145,6 +145,8 @@ void BarConsoleInitialize (void) {
 #include <termios.h>
 #include <stdio.h>
 
+#include "terminal.h"
+
 /*	en/disable echoing for stdin
  *	@param 1 = enable, everything else = disable
  */

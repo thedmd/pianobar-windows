@@ -31,6 +31,7 @@ THE SOFTWARE.
 #include <arpa/inet.h>
 #endif
 
+#include "crypt.h"
 #include "crypt_key_output.h"
 #include "crypt_key_input.h"
 #include "piano_private.h"
@@ -50,19 +51,20 @@ THE SOFTWARE.
  */
 #define INITIAL_SHIFT 28
 #define SHIFT_DEC 4
-unsigned char *PianoDecryptString (const unsigned char *strInput) {
+char *PianoDecryptString (const char * const s) {
+	const unsigned char *strInput = (const unsigned char *) s;
 	/* hex-decode => strlen/2 + null-byte */
 	uint32_t *iDecrypt;
-	unsigned char *strDecrypted;
+	char *strDecrypted;
 	unsigned char shift = INITIAL_SHIFT, intsDecoded = 0, j;
 	/* blowfish blocks, 32-bit */
 	uint32_t f, l, r, lrExchange;
 
-	if ((iDecrypt = calloc (strlen ((char *) strInput)/2/sizeof (*iDecrypt)+1,
+	if ((iDecrypt = calloc (strlen ((const char *) strInput)/2/sizeof (*iDecrypt)+1,
 			sizeof (*iDecrypt))) == NULL) {
 		return NULL;
 	}
-	strDecrypted = (unsigned char *) iDecrypt;
+	strDecrypted = (char *) iDecrypt;
 
 	while (*strInput != '\0') {
 		/* hex-decode string */
@@ -123,8 +125,9 @@ unsigned char *PianoDecryptString (const unsigned char *strInput) {
  *	@param encrypt this
  *	@return encrypted, hex-encoded string
  */
-unsigned char *PianoEncryptString (const unsigned char *strInput) {
-	const size_t strInputN = strlen ((char *) strInput);
+char *PianoEncryptString (const char *s) {
+	const unsigned char *strInput = (const unsigned char *) s;
+	const size_t strInputN = strlen ((const char *) strInput);
 	/* num of 64-bit blocks, rounded to next block */
 	size_t blockN = strInputN / 8 + 1;
 	uint32_t *blockInput, *blockPtr;
@@ -197,5 +200,5 @@ unsigned char *PianoEncryptString (const unsigned char *strInput) {
 
 	free (blockInput);
 
-	return strHex;
+	return (char *) strHex;
 }

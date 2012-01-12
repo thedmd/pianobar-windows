@@ -1,3 +1,18 @@
+Release 2012.01.10
+
+- Use TLS for login only
+- waitress: HTTP/1.1 compliant CONNECT
+- Minor fixes/code cleanup
+
+Release 2011.12.11
+
+- waitress: Replaced ca-bundle with fingerprint check
+- waitress: Support GnuTLS <= 2.10.0
+- waitress: Proxy authorization added again
+- piano: Sync authenticateListener API call with Pandora
+- Fix DYNLINK option
+- Code cleanup, minor UI improvements
+
 Release 2011.11.11
 
 - libwaitress rewrite (supports TLS now)

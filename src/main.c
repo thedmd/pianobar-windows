@@ -153,7 +153,7 @@ static void BarMainGetInitialStation (BarApp_t *app) {
 	else {
 		BarUiMsg (&app->settings, MSG_INFO, "Initial station selection was skipped. "
 			"Press %c for additional help.\n", app->settings.keys[BAR_KS_HELP]);
-	}
+}
 }
 
 /*	wait for user input
@@ -371,7 +371,7 @@ int main (int argc, char **argv) {
 	char *host = NULL;
 
 	memset (&app, 0, sizeof (app));
-	
+
 	#ifdef _WIN32
 	/* initialize console window */
 	BarConsoleInitialize ();
@@ -406,7 +406,6 @@ int main (int argc, char **argv) {
 
 	WaitressInit (&app.waith);
 	app.waith.url.host = (host = bar_strdup (PIANO_RPC_HOST));
-	app.waith.url.tls = true;
 	app.waith.tlsFingerprint = app.settings.tlsFingerprint;
 
 	/* init fds */
