@@ -1232,6 +1232,10 @@ const char *PianoErrorToStr (PianoReturn_t ret) {
 			return "Last seed cannot be removed.";
 			break;
 
+		case PIANO_RET_EXCESSIVE_ACTIVITY:
+			return "Excessive activity.";
+			break;
+
 		default:
 			return "No error message available.";
 			break;
