@@ -550,9 +550,11 @@ static WaitressReturn_t WaitressTlsWrite (void *data, const char *buf,
 		const size_t size) {
 	WaitressHandle_t *waith = data;
 
-	if (ssl_write (waith->request.ssl, buf, size) < 0) {
-		return WAITRESS_RET_TLS_WRITE_ERR;
-	}
+	if (ssl_write (waith->request.ssl, buf, size) < 0)
+		waith->request.readWriteRet = WAITRESS_RET_TLS_WRITE_ERR;
+	else
+		waith->request.readWriteRet = WAITRESS_RET_OK;
+
 	return waith->request.readWriteRet;
 }
 
@@ -623,14 +625,17 @@ static WaitressReturn_t WaitressTlsRead (void *data, char *buf,
 		return waith->request.readWriteRet;
 	}
 
-	if (ret < SSL_OK)
+	if (ret < SSL_OK) {
+		waith->request.readWriteRet = WAITRESS_RET_TLS_READ_ERR;
 		return WAITRESS_RET_TLS_READ_ERR;
+	}
 
 	*retSize = (size_t)ret > size ? (ssize_t)size : ret;
 
 	if (ret > SSL_OK)
 		memcpy(buf, read_buf, *retSize);
 
+	waith->request.readWriteRet = WAITRESS_RET_OK;
 	return waith->request.readWriteRet;
 }
 
