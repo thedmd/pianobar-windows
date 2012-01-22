@@ -96,6 +96,8 @@ static void PianoXmlIsFaultCb (const char *key, const ezxml_t value,
 						*ret = PIANO_RET_REMOVING_TOO_MANY_SEEDS;
 					} else if (strcmp ("EXCESSIVE_ACTIVITY", matchStart) == 0) {
 						*ret = PIANO_RET_EXCESSIVE_ACTIVITY;
+					} else if (strcmp ("DAILY_SKIP_LIMIT_REACHED", matchStart) == 0) {
+						*ret = PIANO_RET_DAILY_SKIP_LIMIT_REACHED;
 					} else {
 						*ret = PIANO_RET_ERR;
 						printf (PACKAGE ": Unknown error %s in %s\n",
@@ -150,7 +152,7 @@ static void PianoXmlStructParser (const ezxml_t structRoot,
 	char *key;
 
 	/* get all <member> nodes */
-	for (curNode = ezxml_child (structRoot, "member"); curNode; curNode = curNode->next) {
+    for (curNode = ezxml_child (structRoot, "member"); curNode; curNode = curNode->next) {
 		/* reset variables */
 		key = NULL;
 		valueNode = keyNode = NULL;
@@ -256,7 +258,7 @@ static void PianoXmlParsePlaylistCb (const char *key, const ezxml_t value,
 		/* don't try to decrypt if string is too short (=> invalid memory
 		 * reads/writes) */
 		if ((int)valueStrN > urlTailN &&
-				(urlTail = (char*)PianoDecryptString ((unsigned char*)urlTailCrypted)) != NULL) {
+				(urlTail = (char*)PianoDecryptString ((unsigned char*)urlTailCrypted, NULL)) != NULL) {
 			if ((song->audioUrl = calloc (valueStrN + 1,
 					sizeof (*song->audioUrl))) != NULL) {
 				memcpy (song->audioUrl, valueStr, valueStrN - urlTailN);
@@ -479,7 +481,7 @@ PianoReturn_t PianoXmlParseCreateStation (PianoHandle_t *ph, char *xml) {
 		}
 		curStation->next = tmpStation;
 	}
-
+	
 	ezxml_free (xmlDoc);
 
 	return PIANO_RET_OK;
@@ -502,7 +504,7 @@ PianoReturn_t PianoXmlParseAddSeed (PianoHandle_t *ph, char *xml,
 	dataNode = ezxml_get (xmlDoc, "params", 0, "param", 0, "value", 0, "struct", -1);
 	PianoDestroyStation (station);
 	PianoXmlStructParser (dataNode, PianoXmlParseStationsCb, station);
-
+	
 	ezxml_free (xmlDoc);
 
 	return PIANO_RET_OK;
@@ -511,7 +513,7 @@ PianoReturn_t PianoXmlParseAddSeed (PianoHandle_t *ph, char *xml,
 static PianoReturn_t PianoXmlParsePlaylistStruct (ezxml_t xml,
 		PianoSong_t **retSong) {
 	PianoSong_t *playlist = *retSong, *tmpSong;
-
+	
 	if ((tmpSong = calloc (1, sizeof (*tmpSong))) == NULL) {
 		return PIANO_RET_OUT_OF_MEMORY;
 	}
@@ -608,7 +610,7 @@ static void PianoXmlParseSearchCb (const char *key, const ezxml_t value,
 		for (curNode = ezxml_child (ezxml_get (value, "array", 0, "data", -1), "value");
 				curNode; curNode = curNode->next) {
 			PianoArtist_t *artist;
-
+			
 			if ((artist = calloc (1, sizeof (*artist))) == NULL) {
 				/* fail silently */
 				break;
@@ -654,7 +656,7 @@ PianoReturn_t PianoXmlParseSearch (char *xml,
 	if ((ret = PianoXmlInitDoc (xml, &xmlDoc)) != PIANO_RET_OK) {
 		return ret;
 	}
-
+	
 	dataNode = ezxml_get (xmlDoc, "params", 0, "param", 0, "value", 0, "struct", -1);
 	/* we need a "clean" search result (with null pointers) */
 	memset (searchResult, 0, sizeof (*searchResult));
@@ -675,7 +677,7 @@ PianoReturn_t PianoXmlParseSeedSuggestions (char *xml,
 	if ((ret = PianoXmlInitDoc (xml, &xmlDoc)) != PIANO_RET_OK) {
 		return ret;
 	}
-
+	
 	dataNode = ezxml_get (xmlDoc, "params", 0, "param", 0, "value", -1);
 	/* we need a "clean" search result (with null pointers) */
 	memset (searchResult, 0, sizeof (*searchResult));
@@ -729,12 +731,12 @@ PianoReturn_t PianoXmlParseGenreExplorer (PianoHandle_t *ph, char *xml) {
 	ezxml_t xmlDoc, catNode;
 	PianoReturn_t ret;
 
-	if ((ret = PianoXmlInitDoc (xml, &xmlDoc)) != PIANO_RET_OK) {
-		return ret;
-	}
+    if ((ret = PianoXmlInitDoc (xml, &xmlDoc)) != PIANO_RET_OK) {
+        return ret;
+    }
 
 	/* get all <member> nodes */
-	for (catNode = ezxml_child (xmlDoc, "category"); catNode;
+    for (catNode = ezxml_child (xmlDoc, "category"); catNode;
 			catNode = catNode->next) {
 		PianoGenreCategory_t *tmpGenreCategory;
 		ezxml_t genreNode;
@@ -800,7 +802,7 @@ PianoReturn_t PianoXmlParseTranformStation (char *xml) {
 	if ((ret = PianoXmlInitDoc (xml, &xmlDoc)) != PIANO_RET_OK) {
 		return ret;
 	}
-
+	
 	ezxml_free (xmlDoc);
 
 	return PIANO_RET_OK;
@@ -969,7 +971,7 @@ PianoReturn_t PianoXmlParseGetStationInfo (char *xml,
 	if ((ret = PianoXmlInitDoc (xml, &xmlDoc)) != PIANO_RET_OK) {
 		return ret;
 	}
-
+	
 	dataNode = ezxml_get (xmlDoc, "params", 0, "param", 0, "value", 0, "struct", -1);
 	PianoXmlStructParser (dataNode, PianoXmlParseGetStationInfoCb, stationInfo);
 
