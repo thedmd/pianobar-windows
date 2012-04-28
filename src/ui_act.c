@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2008-2011
+Copyright (c) 2008-2012
 	Lars-Dominik Braun <lars@6xq.net>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -50,9 +50,11 @@ static INLINE void BarUiDoSkipSong (struct audioPlayer *player) {
 	assert (player != NULL);
 
 	if (player->mode != PLAYER_FREED) {
-		player->doQuit = 1;
-		pthread_mutex_unlock (&player->pauseMutex);
-	}
+	player->doQuit = 1;
+	/* unlocking an unlocked mutex is forbidden by some implementations */
+	pthread_mutex_trylock (&player->pauseMutex);
+	pthread_mutex_unlock (&player->pauseMutex);
+}
 }
 
 /*	transform station if necessary to allow changes like rename, rate, ...
@@ -319,7 +321,7 @@ BarUiActCallback(BarUiActMoveSong) {
 	reqData.step = 0;
 
 	reqData.to = BarUiSelectStation (app, app->ph.stations,
-			"Move song to station: ", NULL);
+			"Move song to station: ", NULL, false);
 	if (reqData.to != NULL) {
 		/* find original station (just is case we're playing a quickmix
 		 * station) */
@@ -382,7 +384,7 @@ BarUiActCallback(BarUiActRenameStation) {
  */
 BarUiActCallback(BarUiActSelectStation) {
 	PianoStation_t *newStation = BarUiSelectStation (app, app->ph.stations,
-			"Select station: ", NULL);
+			"Select station: ", NULL, app->settings.autoselect);
 	if (newStation != NULL) {
 		app->curStation = newStation;
 		BarUiPrintStation (&app->settings, app->curStation);
@@ -480,7 +482,7 @@ BarUiActCallback(BarUiActSelectQuickMix) {
 		PianoStation_t *toggleStation;
 		while ((toggleStation = BarUiSelectStation (app, app->ph.stations,
 				"Toggle quickmix for station: ",
-				BarUiActQuickmixCallback)) != NULL) {
+				BarUiActQuickmixCallback, false)) != NULL) {
 			toggleStation->useQuickMix = !toggleStation->useQuickMix;
 		}
 		BarUiMsg (&app->settings, MSG_INFO, "Setting quickmix stations... ");
@@ -665,7 +667,8 @@ BarUiActCallback(BarUiActManageStation) {
 			}
 		} else if (selectBuf[0] == 't') {
 			PianoStation_t *station = BarUiSelectStation (app,
-					reqData.info.stationSeeds, "Delete seed station: ", NULL);
+					reqData.info.stationSeeds, "Delete seed station: ", NULL,
+					false);
 			if (station != NULL) {
 				PianoRequestDataDeleteSeed_t subReqData;
 

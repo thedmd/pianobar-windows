@@ -24,6 +24,8 @@ THE SOFTWARE.
 #ifndef _SETTINGS_H
 #define _SETTINGS_H
 
+#include <stdbool.h>
+
 #include <piano.h>
 #include <waitress.h>
 
@@ -78,6 +80,8 @@ typedef struct {
 } BarMsgFormatStr_t;
 
 typedef struct {
+	bool autoselect;
+	bool forceTls;
 	unsigned int history;
 	int volume;
 	BarStationSorting_t sortOrder;

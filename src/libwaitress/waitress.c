@@ -1162,6 +1162,7 @@ WaitressReturn_t WaitressFetchCall (WaitressHandle_t *waith) {
 
 	/* initialize */
 	memset (&waith->request, 0, sizeof (waith->request));
+	waith->request.sockfd = -1;
 	waith->request.dataHandler = WaitressHandleIdentity;
 	waith->request.read = WaitressOrdinaryRead;
 	waith->request.write = WaitressOrdinaryWrite;
@@ -1186,7 +1187,9 @@ WaitressReturn_t WaitressFetchCall (WaitressHandle_t *waith) {
 		ssl_free (waith->request.ssl);
 		ssl_ctx_free (waith->request.sslContex);
 	}
-	waitress_close (waith->request.sockfd);
+	if (waith->request.sockfd != -1) {
+		waitress_close (waith->request.sockfd);
+	}
 	free (waith->request.buf);
 
 	if (wRet == WAITRESS_RET_OK &&
