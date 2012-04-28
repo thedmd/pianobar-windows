@@ -182,8 +182,20 @@ void BarSettingsRead (BarSettings_t *settings) {
 
 	/* read config file */
 	while (1) {
-		char lwhite, rwhite;
-		int scanRet = fscanf (configfd, "%255s%c=%c%255[^\n]", key, &lwhite, &rwhite, val);
+		int scanRet;
+		char lwhite, rwhite, first;
+		do {
+			first = fgetc (configfd);
+		} while (first == '\n');
+		if ('#' == first) {
+			/* skip comment line */
+			fscanf (configfd, "%*[^\n]");
+			continue;
+		}
+		else {
+			ungetc (first, configfd);
+		}
+		scanRet = fscanf (configfd, "%255s%c=%c%255[^\n]", key, &lwhite, &rwhite, val);
 		if (scanRet == EOF) {
 			break;
 		} else if (scanRet != 4 || lwhite != ' ' || rwhite != ' ') {
