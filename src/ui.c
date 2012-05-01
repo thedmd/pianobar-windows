@@ -155,7 +155,7 @@ void BarUiMsg (const BarSettings_t *settings, const BarUiMsg_t type,
  */
 static INLINE WaitressReturn_t BarPianoHttpRequest (WaitressHandle_t *waith,
 		PianoRequest_t *req, bool forceTls) {
-	waith->extraHeaders = "Content-Type: text/xml\r\n";
+	waith->extraHeaders = "Content-Type: text/plain\r\n";
 	waith->postData = req->postData;
 	waith->method = WAITRESS_METHOD_POST;
 	waith->url.path = req->urlPath;
@@ -203,7 +203,7 @@ int BarUiPianoCall (BarApp_t * const app, PianoRequestType_t type,
 		*pRet = PianoResponse (&app->ph, &req);
 		if (*pRet != PIANO_RET_CONTINUE_REQUEST) {
 			/* checking for request type avoids infinite loops */
-			if (*pRet == PIANO_RET_AUTH_TOKEN_INVALID &&
+			if (*pRet == PIANO_RET_P_INVALID_AUTH_TOKEN &&
 					type != PIANO_REQUEST_LOGIN) {
 				/* reauthenticate */
 				PianoReturn_t authpRet;
@@ -394,22 +394,22 @@ PianoStation_t *BarUiSelectStation (BarApp_t *app, PianoStation_t *stations,
 			BarUiMsg (&app->settings, MSG_NONE, "%i\n", lastDisplayed);
 			retStation = sortedStations[lastDisplayed];
 		} else {
-		if (BarReadlineStr (buf, sizeof (buf), &app->input,
-				BAR_RL_DEFAULT) == 0) {
+			if (BarReadlineStr (buf, sizeof (buf), &app->input,
+					BAR_RL_DEFAULT) == 0) {
 				break;
-		}
-
-		if (isnumeric (buf)) {
-			unsigned long selected = strtoul (buf, NULL, 0);
-			if (selected < stationCount) {
-				retStation = sortedStations[selected];
 			}
-		}
 
-		/* hand over buffer to external function if it was not a station number */
-		if (retStation == NULL && callback != NULL) {
-			callback (app, buf);
-		}
+			if (isnumeric (buf)) {
+				unsigned long selected = strtoul (buf, NULL, 0);
+				if (selected < stationCount) {
+					retStation = sortedStations[selected];
+				}
+			}
+
+			/* hand over buffer to external function if it was not a station number */
+			if (retStation == NULL && callback != NULL) {
+				callback (app, buf);
+			}
 		}
 	} while (retStation == NULL);
 

@@ -103,6 +103,11 @@ void BarSettingsDestroy (BarSettings_t *settings) {
 	free (settings->npStationFormat);
 	free (settings->listSongFormat);
 	free (settings->fifo);
+	free (settings->partnerUser);
+	free (settings->partnerPassword);
+	free (settings->device);
+	free (settings->inkey);
+	free (settings->outkey);
 	for (i = 0; i < MSG_COUNT; i++) {
 		free (settings->msgFormat[i].prefix);
 		free (settings->msgFormat[i].postfix);
@@ -142,9 +147,15 @@ void BarSettingsRead (BarSettings_t *settings) {
 	settings->npSongFormat = bar_strdup ("\"%t\" by \"%a\" on \"%l\"%r%@%s");
 	settings->npStationFormat = bar_strdup ("Station \"%n\" (%i)");
 	settings->listSongFormat = bar_strdup ("%i) %a - %t%r");
+	settings->partnerUser = bar_strdup ("pandora one");
+	settings->partnerPassword = bar_strdup ("TVCKIBGS9AO9TSYLNNFUML0743LH82D");
+	settings->device = bar_strdup ("D01");
+	settings->inkey = bar_strdup ("U#IO$RZPAB%VX2");
+	settings->outkey = bar_strdup ("2%3WCL*JU$MP]4");
 	settings->fifo = malloc (PATH_MAX * sizeof (*settings->fifo));
-	memcpy (settings->tlsFingerprint, "\xD9\x98\x0B\xA2\xCC\x0F\x97\xBB"
-			"\x03\x82\x2C\x62\x11\xEA\xEA\x4A\x06\xEE\xF4\x27",
+	memcpy (settings->tlsFingerprint, "\x39\x40\x67\xee\xcb\x42\x0e\x39"
+			"\x11\x98\x5c\x2c\xc0\x2c\x12\xae\x89\xbb\x09\xb2",
+			
 			sizeof (settings->tlsFingerprint));
 	#ifdef _WIN32
 	strncpy (settings->fifo, "\\\\.\\pipe\\" PACKAGE "\\ctl", PATH_MAX);
@@ -198,6 +209,21 @@ void BarSettingsRead (BarSettings_t *settings) {
 			settings->username = bar_strdup (val);
 		} else if (streq ("password", key)) {
 			settings->password = bar_strdup (val);
+		} else if (streq ("partner_user", key)) {
+			free (settings->partnerUser);
+			settings->partnerUser = bar_strdup (val);
+		} else if (streq ("partner_password", key)) {
+			free (settings->partnerPassword);
+			settings->partnerPassword = bar_strdup (val);
+		} else if (streq ("device", key)) {
+			free (settings->device);
+			settings->device = bar_strdup (val);
+		} else if (streq ("encrypt_password", key)) {
+			free (settings->outkey);
+			settings->outkey = bar_strdup (val);
+		} else if (streq ("decrypt_password", key)) {
+			free (settings->inkey);
+			settings->inkey = bar_strdup (val);
 		} else if (memcmp ("act_", key, 4) == 0) {
 			size_t i;
 			/* keyboard shortcuts */

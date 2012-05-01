@@ -1,6 +1,8 @@
 /*
-Copyright (c) 2008-2011
+Copyright (c) 2008-2012
 	Lars-Dominik Braun <lars@6xq.net>
+Copyright (c) 2012
+    Micha3 Cichon <michcic@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -25,187 +27,81 @@ THE SOFTWARE.
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#ifdef _WIN32
-#include <winsock.h>
-#else
-#include <arpa/inet.h>
-#endif
+#include <assert.h>
 
 #include "crypt.h"
-#include "crypt_key_output.h"
-#include "crypt_key_input.h"
-#include "piano_private.h"
 
-#define byteswap32(x) ((((x) >> 24) & 0x000000ff) | \
-		(((x) >> 8) & 0x0000ff00) | \
-		(((x) << 8) & 0x00ff0000) | \
-		(((x) << 24) & 0xff000000))
-
-#define hostToBigEndian32(x) htonl(x)
-#define bigToHostEndian32(x) ntohl(x)
+#ifdef _MSC_VER
+#define crypt_snprintf                  _snprintf
+#else
+#define crypt_snprintf                  snprintf
+#endif
 
 /*	decrypt hex-encoded, blowfish-crypted string: decode 2 hex-encoded blocks,
  *	decrypt, byteswap
+ *	@param BLOWFISH_CTX handle
  *	@param hex string
  *	@param decrypted string length (without trailing NUL)
  *	@return decrypted string or NULL
  */
-#define INITIAL_SHIFT 28
-#define SHIFT_DEC 4
-char *PianoDecryptString (const char * const s, size_t * const retSize) {
-	const unsigned char *strInput = (const unsigned char *) s;
-	/* hex-decode => strlen/2 + null-byte */
-	uint32_t *iDecrypt;
-	size_t decryptedSize;
-	char *strDecrypted;
-	unsigned char shift = INITIAL_SHIFT, intsDecoded = 0, j;
-	/* blowfish blocks, 32-bit */
-	uint32_t f, l, r, lrExchange;
+char *PianoDecryptString (BLOWFISH_CTX * ctx, const char * const input,
+		size_t * const retSize) {
+    size_t inputLen = strlen (input);
+    int ret;
+    unsigned char *output;
+    size_t outputLen = inputLen/2;
+    size_t i;
 
-	decryptedSize = strlen ((const char *) strInput)/2;
-	if ((iDecrypt = calloc (decryptedSize/sizeof (*iDecrypt)+1,
-			sizeof (*iDecrypt))) == NULL) {
-		return NULL;
-	}
-	strDecrypted = (char *) iDecrypt;
+    assert (inputLen%2 == 0);
 
-	while (*strInput != '\0') {
-		/* hex-decode string */
-		if (*strInput >= '0' && *strInput <= '9') {
-			*iDecrypt |= (*strInput & 0x0f) << shift;
-		} else if (*strInput >= 'a' && *strInput <= 'f') {
-			/* 0xa (hex) = 10 (decimal), 'a' & 0x0f == 1 => +9 */
-			*iDecrypt |= ((*strInput+9) & 0x0f) << shift;
-		}
-		if (shift > 0) {
-			shift -= SHIFT_DEC;
-		} else {
-			shift = INITIAL_SHIFT;
-			/* initialize next dword */
-			*(++iDecrypt) = 0;
-			++intsDecoded;
-		}
+    output = calloc (outputLen+1, sizeof (*output));
+    /* hex decode */
+    for (i = 0; i < outputLen; i++) {
+        char hex[3];
+        memcpy (hex, &input[i*2], 2);
+        hex[2] = '\0';
+        output[i] = (char)strtol (hex, NULL, 16);
+    }
 
-		/* two 32-bit hex-decoded boxes available => blowfish decrypt */
-		if (intsDecoded == 2) {
-			l = *(iDecrypt-2);
-			r = *(iDecrypt-1);
+    ret = Blowfish_DecryptData (ctx, (uint32_t*)output, (uint32_t*)output, outputLen);
+    if (BLOWFISH_OK != ret) {
+        fprintf (stderr, "Failure: Data block is not aligned to 64-bytes/\n");
+        return NULL;
+    }
 
-			for (j = in_key_n + 1; j > 1; --j) {
-				l ^= in_key_p [j];
+    *retSize = outputLen;
 
-				f = in_key_s [0][(l >> 24) & 0xff] +
-						in_key_s [1][(l >> 16) & 0xff];
-				f ^= in_key_s [2][(l >> 8) & 0xff];
-				f += in_key_s [3][l & 0xff];
-				r ^= f;
-				/* exchange l & r */
-				lrExchange = l;
-				l = r;
-				r = lrExchange;
-			}
-			/* exchange l & r */
-			lrExchange = l;
-			l = r;
-			r = lrExchange;
-			r ^= in_key_p [1];
-			l ^= in_key_p [0];
-
-			*(iDecrypt-2) = bigToHostEndian32 (l);
-			*(iDecrypt-1) = bigToHostEndian32 (r);
-
-			intsDecoded = 0;
-		}
-		++strInput;
-	}
-
-	if (retSize != NULL) {
-		*retSize = decryptedSize;
-	}
-
-	return strDecrypted;
+    return (char *) output;
 }
-#undef INITIAL_SHIFT
-#undef SHIFT_DEC
 
 /*	blowfish-encrypt/hex-encode string
+ *	@param BLOWFISH_CTX handle
  *	@param encrypt this
  *	@return encrypted, hex-encoded string
  */
-char *PianoEncryptString (const char * const s) {
-	const unsigned char *strInput = (const unsigned char *) s;
-	const size_t strInputN = strlen ((const char *) strInput);
-	/* num of 64-bit blocks, rounded to next block */
-	size_t blockN = strInputN / 8 + 1;
-	uint32_t *blockInput, *blockPtr;
-	/* output string */
-	unsigned char *strHex, *hexPtr;
-	const char *hexmap = "0123456789abcdef";
+char *PianoEncryptString (BLOWFISH_CTX * ctx, const char *s) {
+    unsigned char *paddedInput, *hexOutput;
+    size_t inputLen = strlen (s);
+    /* blowfish expects two 32 bit blocks */
+    size_t paddedInputLen = (inputLen % 8 == 0) ? inputLen : inputLen + (8-inputLen%8);
+    size_t i;
+    int ret;
 
-	if ((blockInput = calloc (blockN*2, sizeof (*blockInput))) == NULL) {
-		return NULL;
-	}
-	blockPtr = blockInput;
+    paddedInput = calloc (paddedInputLen+1, sizeof (*paddedInput));
+    memcpy (paddedInput, s, inputLen);
 
-	if ((strHex = calloc (blockN*8*2 + 1, sizeof (*strHex))) == NULL) {
-		return NULL;
-	}
-	hexPtr = strHex;
+    ret = Blowfish_EncryptData (ctx, (uint32_t*)paddedInput, (uint32_t*)paddedInput, paddedInputLen);
+    if (BLOWFISH_OK != ret) {
+        fprintf (stderr, "Failure: Data block is not aligned to 64-bytes/\n");
+        return NULL;
+    }
 
-	memcpy (blockInput, strInput, strInputN);
+    hexOutput = calloc (paddedInputLen*2+1, sizeof (*hexOutput));
+    for (i = 0; i < paddedInputLen; i++) {
+        crypt_snprintf (&hexOutput[i*2], 3, "%02x", paddedInput[i]);
+    }
 
-	while (blockN > 0) {
-		/* encryption blocks */
-		uint32_t f, lrExchange;
-		register uint32_t l, r;
-		int i;
+    free (paddedInput);
 
-		l = hostToBigEndian32 (*blockPtr);
-		r = hostToBigEndian32 (*(blockPtr+1));
-
-		/* encrypt blocks */
-		for (i = 0; i < (int)out_key_n; i++) {
-			l ^= out_key_p[i];
-
-			f = out_key_s[0][(l >> 24) & 0xff] +
-					out_key_s[1][(l >> 16) & 0xff];
-			f ^= out_key_s[2][(l >> 8) & 0xff];
-			f += out_key_s[3][l & 0xff];
-			r ^= f;
-			/* exchange l & r */
-			lrExchange = l;
-			l = r;
-			r = lrExchange;
-		}
-		/* exchange l & r again */
-		lrExchange = l;
-		l = r;
-		r = lrExchange;
-		r ^= out_key_p [out_key_n];
-		l ^= out_key_p [out_key_n+1];
-
-		/* swap bytes again... */
-		l = byteswap32 (l);
-		r = byteswap32 (r);
-
-		/* hex-encode encrypted blocks */
-		for (i = 0; i < 4; i++) {
-			*hexPtr++ = hexmap[(l & 0xf0) >> 4];
-			*hexPtr++ = hexmap[l & 0x0f];
-			l >>= 8;
-		}
-		for (i = 0; i < 4; i++) {
-			*hexPtr++ = hexmap[(r & 0xf0) >> 4];
-			*hexPtr++ = hexmap[r & 0x0f];
-			r >>= 8;
-		}
-
-		/* two! 32-bit blocks encrypted (l & r) */
-		blockPtr += 2;
-		--blockN;
-	}
-
-	free (blockInput);
-
-	return (char *) strHex;
+    return (char *) hexOutput;
 }

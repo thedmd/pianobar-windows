@@ -2,10 +2,10 @@
 #define _CONFIG_H
 
 /* package name */
-#define PACKAGE "pianobar"
+#define PACKAGE			"pianobar"
 
-#define VERSION "2012.04.24"
-#define VERSION_WIN32	"2012.04.28-patched"
+#define VERSION			"2012.05.01"
+#define VERSION_WIN32	"2012.05.01"
 
 #ifdef _MSC_VER
 #define INLINE			__forceinline

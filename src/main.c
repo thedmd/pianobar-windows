@@ -386,7 +386,6 @@ int main (int argc, char **argv) {
 
 	/* init some things */
 	ao_initialize ();
-	PianoInit (&app.ph);
 
 	BarSettingsInit (&app.settings);
 	BarSettingsRead (&app.settings);
@@ -394,6 +393,9 @@ int main (int argc, char **argv) {
 	#ifdef _WIN32
 	BarConsoleSetSizeWin32 (app.settings.width, app.settings.height);
 	#endif
+
+	PianoInit (&app.ph, app.settings.partnerUser, app.settings.partnerPassword,
+			app.settings.device, app.settings.inkey, app.settings.outkey);
 
 	BarUiMsg (&app.settings, MSG_NONE,
 			"Welcome to " PACKAGE " (" VERSION_WIN32 " for Windows based on " VERSION ")! ");

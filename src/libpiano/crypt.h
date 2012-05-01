@@ -24,7 +24,10 @@ THE SOFTWARE.
 #ifndef _CRYPH_H
 #define _CRYPT_H
 
-char *PianoDecryptString (const char * const strInput, size_t * const size);
-char *PianoEncryptString (const char * const strInput);
+#include "blowfish.h"
+
+char *PianoDecryptString (BLOWFISH_CTX*, const char * const,
+		size_t * const);
+char *PianoEncryptString (BLOWFISH_CTX*, const char *);
 
 #endif /* _CRYPT_H */
