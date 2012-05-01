@@ -42,7 +42,7 @@ THE SOFTWARE.
 #include "crypt.h"
 #include "config.h"
 
-#define PIANO_PROTOCOL_VERSION "34"
+#define PIANO_PROTOCOL_VERSION "33"
 #define PIANO_RPC_HOST "www.pandora.com"
 #define PIANO_RPC_PORT "80"
 #define PIANO_RPC_PATH "/radio/xmlrpc/v" PIANO_PROTOCOL_VERSION "?"
@@ -273,7 +273,6 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 							"<?xml version=\"1.0\"?><methodCall>"
 							"<methodName>listener.authenticateListener</methodName>"
 							"<params><param><value><int>%lu</int></value></param>"
-							"<param><value><string></string></value></param>"
 							/* user */
 							"<param><value><string>%s</string></value></param>"
 							/* password */
