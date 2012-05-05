@@ -147,15 +147,15 @@ void BarSettingsRead (BarSettings_t *settings) {
 	settings->npSongFormat = bar_strdup ("\"%t\" by \"%a\" on \"%l\"%r%@%s");
 	settings->npStationFormat = bar_strdup ("Station \"%n\" (%i)");
 	settings->listSongFormat = bar_strdup ("%i) %a - %t%r");
-	settings->rpcHost = bar_strdup("internal-tuner.pandora.com");
-	settings->partnerUser = bar_strdup ("pandora one");
-	settings->partnerPassword = bar_strdup ("TVCKIBGS9AO9TSYLNNFUML0743LH82D");
-	settings->device = bar_strdup ("D01");
-	settings->inkey = bar_strdup ("U#IO$RZPAB%VX2");
-	settings->outkey = bar_strdup ("2%3WCL*JU$MP]4");
+	settings->rpcHost = bar_strdup("tuner.pandora.com");
+	settings->partnerUser = bar_strdup ("android");
+	settings->partnerPassword = bar_strdup ("AC7IBG09A3DTSYM4R41UJWL07VLN8JI7");
+	settings->device = bar_strdup ("android-generic");
+	settings->inkey = bar_strdup ("R=U!LH$O2B#");
+	settings->outkey = bar_strdup ("6#26FRL$ZWD");
 	settings->fifo = malloc (PATH_MAX * sizeof (*settings->fifo));
-	memcpy (settings->tlsFingerprint, "\x39\x40\x67\xee\xcb\x42\x0e\x39"
-			"\x11\x98\x5c\x2c\xc0\x2c\x12\xae\x89\xbb\x09\xb2",
+	memcpy (settings->tlsFingerprint, "\xA2\xA0\xBE\x8A\x37\x92\x39\xAE"
+			"\x2B\x2E\x71\x4C\x56\xB3\x8B\xC1\x2A\x9B\x4B\x77",
 			sizeof (settings->tlsFingerprint));
 
 	#ifdef _WIN32
