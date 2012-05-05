@@ -156,8 +156,8 @@ void BarSettingsRead (BarSettings_t *settings) {
 	settings->fifo = malloc (PATH_MAX * sizeof (*settings->fifo));
 	memcpy (settings->tlsFingerprint, "\x39\x40\x67\xee\xcb\x42\x0e\x39"
 			"\x11\x98\x5c\x2c\xc0\x2c\x12\xae\x89\xbb\x09\xb2",
-			
 			sizeof (settings->tlsFingerprint));
+
 	#ifdef _WIN32
 	strncpy (settings->fifo, "\\\\.\\pipe\\" PACKAGE "\\ctl", PATH_MAX);
 	#else
