@@ -1275,7 +1275,12 @@ const char *WaitressErrorToStr (WaitressReturn_t wRet) {
 			break;
 
 		default:
-			return "No error message available.";
+			{
+				static char errorMessage[64];
+				waitress_snprintf(errorMessage, 63, "No error message available for code %d.", wRet);
+				errorMessage[64] = 0;
+				return errorMessage;
+			}
 			break;
 	}
 }

@@ -276,7 +276,12 @@ const char *PianoErrorToStr (PianoReturn_t ret) {
 			break;
 
 		default:
-			return "No error message available.";
+			{
+				static char errorMessage[64];
+				piano_snprintf(errorMessage, 63, "No error message available for code %d.", ret);
+				errorMessage[64] = 0;
+				return errorMessage;
+			}
 			break;
 	}
 }
