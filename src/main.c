@@ -462,6 +462,10 @@ int main (int argc, char **argv) {
 
 	free (host);
 
+#if defined(_DEBUG) && defined(_WIN32)
+	system("pause");
+#endif
+
 	return 0;
 }
 
