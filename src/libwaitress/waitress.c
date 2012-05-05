@@ -1,7 +1,7 @@
 /*
 Copyright (c) 2009-2011
 	Lars-Dominik Braun <lars@6xq.net>
-Copyright (c) 2011
+Copyright (c) 2011-2012
 	Micha³ Cichoñ <michcic@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -119,7 +119,7 @@ static void WaitressStaticInit (void) {
 	 *
 	 * I picked solution simple to understand and implement.
 	 */
-	bool isInitialized = false;
+	static bool isInitialized = false;
 
 	if (false == isInitialized) {
 
@@ -128,7 +128,7 @@ static void WaitressStaticInit (void) {
 
 		atexit (WaitressStaticFree);
 
-		isInitialized = false;
+		isInitialized = true;
 	}
 }
 #endif
