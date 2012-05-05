@@ -151,15 +151,14 @@ void BarUiMsg (const BarSettings_t *settings, const BarUiMsg_t type,
 /*	fetch http resource (post request)
  *	@param waitress handle
  *	@param piano request (initialized by PianoRequest())
- *	@param ignore libpiano TLS hint and use it always
  */
 static INLINE WaitressReturn_t BarPianoHttpRequest (WaitressHandle_t *waith,
-		PianoRequest_t *req, bool forceTls) {
+		PianoRequest_t *req) {
 	waith->extraHeaders = "Content-Type: text/plain\r\n";
 	waith->postData = req->postData;
 	waith->method = WAITRESS_METHOD_POST;
 	waith->url.path = req->urlPath;
-	waith->url.tls = req->secure || forceTls;
+	waith->url.tls = req->secure;
 
 	return WaitressFetchBuf (waith, &req->responseData);
 }
@@ -190,7 +189,7 @@ int BarUiPianoCall (BarApp_t * const app, PianoRequestType_t type,
 			return 0;
 		}
 
-		*wRet = BarPianoHttpRequest (&app->waith, &req, app->settings.forceTls);
+		*wRet = BarPianoHttpRequest (&app->waith, &req);
 		if (*wRet != WAITRESS_RET_OK) {
 			BarUiMsg (&app->settings, MSG_NONE, "Network error: %s\n", WaitressErrorToStr (*wRet));
 			if (req.responseData != NULL) {
@@ -502,7 +501,7 @@ PianoArtist_t *BarUiSelectArtist (BarApp_t *app, PianoArtist_t *startArtist) {
  *	@return musicId or NULL on abort/error
  */
 char *BarUiSelectMusicId (BarApp_t *app, PianoStation_t *station,
-		PianoSong_t *similarSong, const char *msg) {
+		const char *msg) {
 	char *musicId = NULL;
 	char lineBuf[100], selectBuf[2];
 	PianoSearchResult_t searchResult;
@@ -512,23 +511,6 @@ char *BarUiSelectMusicId (BarApp_t *app, PianoStation_t *station,
 	BarUiMsg (&app->settings, MSG_QUESTION, msg);
 	if (BarReadlineStr (lineBuf, sizeof (lineBuf), &app->input,
 			BAR_RL_DEFAULT) > 0) {
-		if (strcmp ("?", lineBuf) == 0 && station != NULL &&
-				similarSong != NULL) {
-			PianoReturn_t pRet;
-			WaitressReturn_t wRet;
-			PianoRequestDataGetSeedSuggestions_t reqData;
-
-			reqData.station = station;
-			reqData.musicId = similarSong->musicId;
-			reqData.max = 20;
-
-			BarUiMsg (&app->settings, MSG_INFO, "Receiving suggestions... ");
-			if (!BarUiPianoCall (app, PIANO_REQUEST_GET_SEED_SUGGESTIONS,
-					&reqData, &pRet, &wRet)) {
-				return NULL;
-			}
-			memcpy (&searchResult, &reqData.searchResult, sizeof (searchResult));
-		} else {
 			PianoReturn_t pRet;
 			WaitressReturn_t wRet;
 			PianoRequestDataSearch_t reqData;
@@ -541,7 +523,7 @@ char *BarUiSelectMusicId (BarApp_t *app, PianoStation_t *station,
 				return NULL;
 			}
 			memcpy (&searchResult, &reqData.searchResult, sizeof (searchResult));
-		}
+
 		BarUiMsg (&app->settings, MSG_NONE, "\r");
 		if (searchResult.songs != NULL &&
 				searchResult.artists != NULL) {

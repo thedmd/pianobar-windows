@@ -137,7 +137,6 @@ void BarSettingsRead (BarSettings_t *settings) {
 		#endif
 	#endif
 	settings->autoselect = true;
-	settings->forceTls = false;
 	settings->history = 5;
 	settings->volume = 0;
 	settings->sortOrder = BAR_SORT_NAME_AZ;
@@ -240,6 +239,8 @@ void BarSettingsRead (BarSettings_t *settings) {
 		} else if (streq ("audio_format", key)) {
 			if (streq (val, "aacplus")) {
 				settings->audioFormat = PIANO_AF_AACPLUS;
+			} else if (streq (val, "aacplus-lofi")) {
+				settings->audioFormat = PIANO_AF_AACPLUS_LO;
 			} else if (streq (val, "mp3")) {
 				settings->audioFormat = PIANO_AF_MP3;
 			} else if (streq (val, "mp3-hifi")) {
@@ -297,8 +298,6 @@ void BarSettingsRead (BarSettings_t *settings) {
 			settings->fifo = bar_strdup (val);
 		} else if (streq ("autoselect", key)) {
 			settings->autoselect = atoi (val);
-		} else if (streq ("force_tls", key)) {
-			settings->forceTls = atoi (val);
 		} else if (streq ("tls_fingerprint", key)) {
 			/* expects 40 byte hex-encoded sha1 */
 			if (strlen (val) == 40) {

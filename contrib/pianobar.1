@@ -156,7 +156,7 @@ Increase volume.
 Replacement for %@ in station format string. It's " @ " by default.
 
 .TP
-.B audio_format = {aacplus,mp3,mp3-hifi}
+.B audio_format = {aacplus-lofi,aacplus,mp3,mp3-hifi}
 Select audio format. aacplus is default if both libraries (faad, mad) are
 available. mp3-hifi is available for Pandora One customers only.
 
@@ -184,6 +184,15 @@ Non-american users need a proxy to use pandora.com. Only the xmlrpc interface
 will use this proxy. The music is streamed directly.
 
 .TP
+.B decrypt_password = R=U!LH$O2B#
+
+.TP
+.B device = android-generic
+
+.TP
+.B encrypt_password = 6#26FRL$ZWD
+
+.TP
 .B event_command = path
 File that is executed when event occurs. See section
 .B EVENTCMD
@@ -193,11 +202,6 @@ File that is executed when event occurs. See section
 Location of control fifo. Defaults to $XDG_CONFIG_HOME/pianobar/ctl (which is
 usually the value above). See section
 .B REMOTE CONTROL
-
-.TP
-.B force_tls = {0,1}
-Use TLS for all actions (not just sending login credentials). Use if you are on
-an untrusted network or to get around GeoIP restrictions.
 
 .TP
 .B format_list_song = %i) %a - %t%r
@@ -276,6 +280,12 @@ Keep a history of the last n songs (5, by default). You can rate these songs.
 .TP
 .B love_icon = <3
 Icon for loved songs.
+
+.TP
+.B partner_password = AC7IBG09A3DTSYM4R41UJWL07VLN8JI7
+
+.TP
+.B partner_user = android
 
 .TP
 .B password = plaintext_password

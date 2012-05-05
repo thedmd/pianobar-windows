@@ -37,6 +37,34 @@ THE SOFTWARE.
 #include "piano_private.h"
 #include "crypt.h"
 
+/*	convert audio format id to string
+ *	@param format id
+ *	@return constant string
+ */
+static const char *PianoAudioFormatToString (PianoAudioFormat_t format) {
+	switch (format) {
+		case PIANO_AF_AACPLUS_LO:
+			return "HTTP_32_AACPLUS";
+			break;
+
+		case PIANO_AF_AACPLUS:
+			return "HTTP_64_AACPLUS";
+			break;
+
+		case PIANO_AF_MP3:
+			return "HTTP_128_MP3";
+			break;
+
+		case PIANO_AF_MP3_HI:
+			return "HTTP_192_MP3";
+			break;
+
+		default:
+			return NULL;
+			break;
+	}
+}
+
 /*	prepare piano request (initializes request type, urlpath and postData)
  *	@param piano handle
  *	@param request structure
@@ -134,6 +162,8 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 
 			json_object_object_add (j, "stationToken",
 					json_object_new_string (reqData->station->id));
+			json_object_object_add (j, "additionalAudioUrl",
+					json_object_new_string (PianoAudioFormatToString (reqData->format)));
 
 			method = "station.getPlaylist";
 			break;
@@ -297,36 +327,6 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 					json_object_new_string (reqData->song->trackToken));
 
 			method = "track.explainTrack";
-			break;
-		}
-
-		case PIANO_REQUEST_GET_SEED_SUGGESTIONS: {
-#if 0
-			/* find similar artists */
-			PianoRequestDataGetSeedSuggestions_t *reqData = req->data;
-
-			assert (reqData != NULL);
-			assert (reqData->musicId != NULL);
-			assert (reqData->max != 0);
-
-			snprintf (xmlSendBuf, sizeof (xmlSendBuf), "<?xml version=\"1.0\"?>"
-					"<methodCall><methodName>music.getSeedSuggestions</methodName>"
-					"<params><param><value><int>%lu</int></value></param>"
-					/* auth token */
-					"<param><value><string>%s</string></value></param>"
-					/* station id */
-					"<param><value><string>%s</string></value></param>"
-					/* seed music id */
-					"<param><value><string>%s</string></value></param>"
-					/* max */
-					"<param><value><int>%u</int></value></param>"
-					"</params></methodCall>", (unsigned long) timestamp,
-					ph->user.authToken, reqData->station->id, reqData->musicId,
-					reqData->max);
-			snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
-					"rid=%s&lid=%s&method=getSeedSuggestions&arg1=%s&arg2=%u",
-					ph->routeId, ph->user.listenerId, reqData->musicId, reqData->max);
-#endif
 			break;
 		}
 

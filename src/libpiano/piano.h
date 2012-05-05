@@ -65,7 +65,8 @@ typedef enum {
 	PIANO_AF_UNKNOWN = 0,
 	PIANO_AF_AACPLUS = 1,
 	PIANO_AF_MP3 = 2,
-	PIANO_AF_MP3_HI = 3
+	PIANO_AF_MP3_HI = 3,
+	PIANO_AF_AACPLUS_LO = 4,
 } PianoAudioFormat_t;
 
 typedef struct PianoSong {
@@ -152,7 +153,6 @@ typedef enum {
 	PIANO_REQUEST_GET_GENRE_STATIONS = 14,
 	PIANO_REQUEST_TRANSFORM_STATION = 15,
 	PIANO_REQUEST_EXPLAIN = 16,
-	PIANO_REQUEST_GET_SEED_SUGGESTIONS = 17,
 	PIANO_REQUEST_BOOKMARK_SONG = 18,
 	PIANO_REQUEST_BOOKMARK_ARTIST = 19,
 	PIANO_REQUEST_GET_STATION_INFO = 20,
@@ -224,13 +224,6 @@ typedef struct {
 	PianoSong_t *song;
 	char *retExplain;
 } PianoRequestDataExplain_t;
-
-typedef struct {
-	PianoStation_t *station;
-	char *musicId;
-	unsigned short max;
-	PianoSearchResult_t searchResult;
-} PianoRequestDataGetSeedSuggestions_t;
 
 typedef struct {
 	PianoStation_t *station;

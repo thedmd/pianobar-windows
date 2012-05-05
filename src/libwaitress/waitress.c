@@ -80,6 +80,7 @@ THE SOFTWARE.
 #include <fcntl.h>
 #include <errno.h>
 #include <assert.h>
+#include <stdint.h>
 
 #include "config.h"
 #include "waitress.h"
