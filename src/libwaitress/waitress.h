@@ -24,10 +24,21 @@ THE SOFTWARE.
 #ifndef _WAITRESS_H
 #define _WAITRESS_H
 
+/* Enable only one. */
+#define WAITRESS_USE_GNUTLS		0
+#define WAITRESS_USE_POLARSSL	1
+
 #include <stdlib.h>
 #include <stdbool.h>
 #include <unistd.h>
-#include <axTLS/ssl.h>
+
+#if WAITRESS_USE_GNUTLS
+#include <gnutls/gnutls.h>
+#endif
+
+#if WAITRESS_USE_POLARSSL
+typedef struct _polarssl_ctx polarssl_ctx;
+#endif
 
 #define WAITRESS_BUFFER_SIZE 10*1024
 
@@ -96,6 +107,9 @@ typedef struct {
 	WaitressUrl_t url;
 	WaitressUrl_t proxy;
 
+#if WAITRESS_USE_GNUTLS
+	gnutls_certificate_credentials_t tlsCred;
+#endif
 
 	/* per-request data */
 	struct {
@@ -107,12 +121,20 @@ typedef struct {
 		size_t contentLength, contentReceived, chunkSize;
 
 		char *buf;
-		SSL_CTX *sslContex;
-		SSL* ssl;
+
 		/* first argument is WaitressHandle_t, but that's not defined yet */
 		WaitressHandlerReturn_t (*dataHandler) (void *, char *, const size_t);
 		WaitressReturn_t (*read) (void *, char *, const size_t, size_t *);
 		WaitressReturn_t (*write) (void *, const char *, const size_t);
+
+#if WAITRESS_USE_GNUTLS
+		gnutls_session_t tlsSession;
+#endif
+
+#if WAITRESS_USE_POLARSSL
+		polarssl_ctx* sslCtx;
+#endif
+
 	} request;
 } WaitressHandle_t;
 

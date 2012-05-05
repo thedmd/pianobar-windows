@@ -61,6 +61,26 @@ THE SOFTWARE.
 	getsockopt(handle, level, optname, optval, optlen)
 #endif
 
+#include "config.h"
+#include "waitress.h"
+
+#if WAITRESS_USE_POLARSSL
+#include <polarssl/ssl.h>
+#include <polarssl/entropy.h>
+#include <polarssl/ctr_drbg.h>
+#include <polarssl/x509.h>
+#include <polarssl/sha1.h>
+
+struct _polarssl_ctx
+{
+	ssl_context			ssl;
+	ssl_session			session;
+	entropy_context		entrophy;
+	ctr_drbg_context	rnd;
+};
+
+#endif
+
 #include <sys/types.h>
 #ifdef _WIN32
 #define _WIN32_WINNT 0x501
@@ -82,8 +102,9 @@ THE SOFTWARE.
 #include <assert.h>
 #include <stdint.h>
 
-#include "config.h"
-#include "waitress.h"
+#if WAITRESS_USE_GNUTLS
+#include <gnutls/x509.h>
+#endif
 
 #define strcaseeq(a,b) (waitress_strcasecmp(a,b) == 0)
 #define WAITRESS_HTTP_VERSION "1.1"
@@ -108,6 +129,11 @@ static WaitressReturn_t WaitressReceiveHeaders (WaitressHandle_t *, size_t *);
 
 #ifdef _WIN32
 static void WaitressStaticFree (void) {
+
+#if WAITRESS_USE_GNUTLS
+	gnutls_global_deinit ();
+#endif
+
 	WSACleanup ();
 }
 
@@ -125,6 +151,10 @@ static void WaitressStaticInit (void) {
 
 		WSADATA wsaData;
 		WSAStartup (MAKEWORD(2, 2), &wsaData);
+
+#if WAITRESS_USE_GNUTLS
+		gnutls_global_init ();
+#endif
 
 		atexit (WaitressStaticFree);
 
@@ -549,14 +579,24 @@ static WaitressReturn_t WaitressOrdinaryWrite (void *data, const char *buf,
 
 static WaitressReturn_t WaitressTlsWrite (void *data, const char *buf,
 		const size_t size) {
+#if WAITRESS_USE_GNUTLS
 	WaitressHandle_t *waith = data;
 
-	if (ssl_write (waith->request.ssl, buf, size) < 0)
-		waith->request.readWriteRet = WAITRESS_RET_TLS_WRITE_ERR;
-	else
-		waith->request.readWriteRet = WAITRESS_RET_OK;
+	if (gnutls_record_send (waith->request.tlsSession, buf, size) < 0) {
+		return WAITRESS_RET_TLS_WRITE_ERR;
+	}
+	return waith->request.readWriteRet;
+#endif
+
+#if WAITRESS_USE_POLARSSL
+	WaitressHandle_t *waith = data;
+
+	if (ssl_write (&waith->request.sslCtx->ssl, buf, size) < 0) {
+		return WAITRESS_RET_TLS_WRITE_ERR;
+	}
 
 	return waith->request.readWriteRet;
+#endif
 }
 
 /*	read () wrapper with poll () timeout
@@ -613,31 +653,43 @@ static WaitressReturn_t WaitressOrdinaryRead (void *data, char *buf,
 
 static WaitressReturn_t WaitressTlsRead (void *data, char *buf,
 		const size_t size, size_t *retSize) {
+#if WAITRESS_USE_GNUTLS
 	WaitressHandle_t *waith = data;
-	uint8_t *read_buf;
-	ssize_t ret;
 
-	while ((ret = ssl_read(waith->request.ssl, &read_buf)) == 0)
-		/* continue */;
-
-	if (ret == SSL_CLOSE_NOTIFY) {
-		*retSize = 0;
-		waith->request.readWriteRet = WAITRESS_RET_OK;
-		return waith->request.readWriteRet;
-	}
-
-	if (ret < SSL_OK) {
-		waith->request.readWriteRet = WAITRESS_RET_TLS_READ_ERR;
+	ssize_t ret = gnutls_record_recv (waith->request.tlsSession, buf, size);
+	if (ret < 0) {
 		return WAITRESS_RET_TLS_READ_ERR;
+	} else {
+		*retSize = ret;
 	}
-
-	*retSize = (size_t)ret > size ? (ssize_t)size : ret;
-
-	if (ret > SSL_OK)
-		memcpy(buf, read_buf, *retSize);
-
-	waith->request.readWriteRet = WAITRESS_RET_OK;
 	return waith->request.readWriteRet;
+#endif
+
+#if WAITRESS_USE_POLARSSL
+	WaitressHandle_t *waith = data;
+	int ret;
+
+	*retSize = 0;
+
+	do
+	{
+		ret = ssl_read (&waith->request.sslCtx->ssl, buf, size);
+
+		if (ret == POLARSSL_ERR_SSL_PEER_CLOSE_NOTIFY)
+			return (waith->request.readWriteRet = WAITRESS_RET_OK);
+
+		if (ret < 0)
+			return (waith->request.readWriteRet = WAITRESS_RET_TLS_READ_ERR);
+
+		if (ret > 0)
+			break;
+
+	} while (1);
+
+	*retSize = ret;
+
+	return (waith->request.readWriteRet = WAITRESS_RET_OK);
+#endif
 }
 
 /*	send basic http authorization
@@ -811,20 +863,64 @@ static int WaitressParseStatusline (const char * const line) {
 /*	verify server certificate
  */
 static int WaitressTlsVerify (const WaitressHandle_t *waith) {
-	int res = ssl_verify_cert (waith->request.ssl);
+#if WAITRESS_USE_GNUTLS
+	gnutls_session_t session = waith->request.tlsSession;
+	unsigned int certListSize;
+	const gnutls_datum_t *certList;
+	gnutls_x509_crt_t cert;
+	char fingerprint[20];
+	size_t fingerprintSize;
 
-	if (res == SSL_X509_ERROR(X509_OK))
-		return 0;
-	else if (res == SSL_X509_ERROR(X509_VFY_ERROR_NO_TRUSTED_CERT))
-	{
-		/* accept certificate if fingerprint are identical */
-		if (memcmp (waith->request.ssl->x509_ctx->sha1_fingerprint,
-				waith->tlsFingerprint, sizeof (waith->tlsFingerprint)) == 0)
-			return 0;
+	if (gnutls_certificate_type_get (session) != GNUTLS_CRT_X509) {
+		return GNUTLS_E_CERTIFICATE_ERROR;
 	}
 
-	return -1;
+	if ((certList = gnutls_certificate_get_peers (session,
+		&certListSize)) == NULL) {
+			return GNUTLS_E_CERTIFICATE_ERROR;
 	}
+
+	if (gnutls_x509_crt_init (&cert) != GNUTLS_E_SUCCESS) {
+		return GNUTLS_E_CERTIFICATE_ERROR;
+	}
+
+	if (gnutls_x509_crt_import (cert, &certList[0],
+		GNUTLS_X509_FMT_DER) != GNUTLS_E_SUCCESS) {
+			return GNUTLS_E_CERTIFICATE_ERROR;
+	}
+
+	fingerprintSize = sizeof (fingerprint);
+	if (gnutls_x509_crt_get_fingerprint (cert, GNUTLS_DIG_SHA1, fingerprint,
+		&fingerprintSize) != 0) {
+			return GNUTLS_E_CERTIFICATE_ERROR;
+	}
+
+	if (memcmp (fingerprint, waith->tlsFingerprint, sizeof (fingerprint)) != 0) {
+		return GNUTLS_E_CERTIFICATE_ERROR;
+	}
+
+	gnutls_x509_crt_deinit (cert);
+
+#endif
+
+#if WAITRESS_USE_POLARSSL
+	unsigned char fingerprint[20];
+
+	x509_cert* cert = waith->request.sslCtx->ssl.peer_cert;
+
+	if (NULL == cert)
+		return -1;
+
+	sha1(cert->raw.p, cert->raw.len, fingerprint);
+
+	if (memcmp (fingerprint, waith->tlsFingerprint, sizeof (fingerprint)) != 0)
+		return -1;
+
+	return 0;
+#endif
+
+	return 0;
+}
 
 static void WaitressDisableBlocking(int sockfd)
 {
@@ -929,11 +1025,17 @@ static WaitressReturn_t WaitressConnect (WaitressHandle_t *waith) {
 			}
 		}
 
-		waith->request.ssl = ssl_client_new(waith->request.sslContex, waith->request.sockfd, NULL, 0);
-
-		if (ssl_handshake_status (waith->request.ssl) != SSL_OK) {
+#if WAITRESS_USE_GNUTLS
+		if (gnutls_handshake (waith->request.tlsSession) != GNUTLS_E_SUCCESS) {
 			return WAITRESS_RET_TLS_HANDSHAKE_ERR;
 		}
+#endif
+
+#if WAITRESS_USE_POLARSSL
+		if (ssl_handshake(&waith->request.sslCtx->ssl) != 0) {
+			return WAITRESS_RET_TLS_HANDSHAKE_ERR;
+		}
+#endif
 
 		if (WaitressTlsVerify (waith) != 0) {
 			return WAITRESS_RET_TLS_HANDSHAKE_ERR;
@@ -1169,7 +1271,41 @@ WaitressReturn_t WaitressFetchCall (WaitressHandle_t *waith) {
 	waith->request.write = WaitressOrdinaryWrite;
 
 	if (waith->url.tls) {
-		waith->request.sslContex = ssl_ctx_new(SSL_SERVER_VERIFY_LATER, SSL_DEFAULT_CLNT_SESS);
+#if WAITRESS_USE_GNUTLS
+		gnutls_init (&waith->request.tlsSession, GNUTLS_CLIENT);
+		gnutls_set_default_priority (waith->request.tlsSession);
+
+		gnutls_certificate_allocate_credentials (&waith->tlsCred);
+		if (gnutls_credentials_set (waith->request.tlsSession,
+			GNUTLS_CRD_CERTIFICATE,
+			waith->tlsCred) != GNUTLS_E_SUCCESS) {
+				return WAITRESS_RET_ERR;
+		}
+
+		/* set up custom read/write functions */
+		gnutls_transport_set_ptr (waith->request.tlsSession,
+			(gnutls_transport_ptr_t) waith);
+		gnutls_transport_set_pull_function (waith->request.tlsSession,
+			WaitressPollRead);
+		gnutls_transport_set_push_function (waith->request.tlsSession,
+			WaitressPollWrite);
+#endif
+
+#if WAITRESS_USE_POLARSSL
+		waith->request.sslCtx = malloc(sizeof(polarssl_ctx));
+		memset(waith->request.sslCtx, 0, sizeof(polarssl_ctx));
+		entropy_init(&waith->request.sslCtx->entrophy);
+		ctr_drbg_init(&waith->request.sslCtx->rnd, entropy_func, &waith->request.sslCtx->entrophy, "libwaitress", 11);
+		ssl_init(&waith->request.sslCtx->ssl);
+		ssl_set_endpoint(&waith->request.sslCtx->ssl, SSL_IS_CLIENT);
+		ssl_set_authmode(&waith->request.sslCtx->ssl, SSL_VERIFY_NONE);
+		ssl_set_rng(&waith->request.sslCtx->ssl, ctr_drbg_random, &waith->request.sslCtx->rnd);
+		ssl_set_ciphersuites(&waith->request.sslCtx->ssl, ssl_default_ciphersuites);
+		ssl_set_session(&waith->request.sslCtx->ssl, 1, 600, &waith->request.sslCtx->session);
+		ssl_set_bio(&waith->request.sslCtx->ssl,
+			WaitressPollRead, waith,
+			WaitressPollWrite, waith);
+#endif
 	}
 
 	/* buffer is required for connect already */
@@ -1185,8 +1321,16 @@ WaitressReturn_t WaitressFetchCall (WaitressHandle_t *waith) {
 
 	/* cleanup */
 	if (waith->url.tls) {
-		ssl_free (waith->request.ssl);
-		ssl_ctx_free (waith->request.sslContex);
+#if WAITRESS_USE_GNUTLS
+		gnutls_bye (waith->request.tlsSession, GNUTLS_SHUT_RDWR);
+		gnutls_deinit (waith->request.tlsSession);
+		gnutls_certificate_free_credentials (waith->tlsCred);
+#endif
+
+#if WAITRESS_USE_POLARSSL
+		ssl_free(&waith->request.sslCtx->ssl);
+		free(waith->request.sslCtx);
+#endif
 	}
 	if (waith->request.sockfd != -1) {
 		waitress_close (waith->request.sockfd);
