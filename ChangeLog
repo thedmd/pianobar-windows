@@ -1,3 +1,22 @@
+Release 2012.06.24
+
+- Removed setting audio_format, added audio_quality. libfaad (aac) is now required,
+  libmad (mp3) is optional (for Pandora One users)
+- Fix thumbs up/down
+- Fix race condition
+- Fix custom key bindings
+- Improve error messages
+- Minor bugfixes
+
+Release 2012.05.06
+
+- Move to JSON API (v5), see http://pan-do-ra-api.wikia.com/
+- New dependencies: json-c and libgcrypt
+- Low-bitrate AAC audio support
+- Seed suggestions and force_tls config setting not supported any more
+- Fix race condition
+- Minor bugfixes and code cleanup
+
 Release 2012.04.24
 
 - Fix format string crash

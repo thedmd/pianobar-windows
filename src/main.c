@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2008-2011
+Copyright (c) 2008-2012
 	Lars-Dominik Braun <lars@6xq.net>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -51,6 +51,7 @@ typedef struct termios termios;
 #include <assert.h>
 #include <stdbool.h>
 #include <limits.h>
+#include <signal.h>
 
 /* pandora.com library */
 #include <piano.h>
@@ -175,7 +176,7 @@ static void BarMainGetPlaylist (BarApp_t *app) {
 	WaitressReturn_t wRet;
 	PianoRequestDataGetPlaylist_t reqData;
 	reqData.station = app->curStation;
-	reqData.format = app->settings.audioFormat;
+	reqData.quality = app->settings.audioQuality;
 
 	BarUiMsg (&app->settings, MSG_INFO, "Receiving new playlist... ");
 	if (!BarUiPianoCall (app, PIANO_REQUEST_GET_PLAYLIST,
@@ -218,6 +219,7 @@ static void BarMainStartPlayback (BarApp_t *app, pthread_t *playerThread) {
 		app->player.scale = BarPlayerCalcScale (app->player.gain + app->settings.volume);
 		app->player.audioFormat = app->playlist->audioFormat;
 		app->player.settings = &app->settings;
+		pthread_mutex_init (&app->player.pauseMutex, NULL);
 
 		/* throw event */
 		BarUiStartEventCmd (&app->settings, "songstart",
@@ -245,6 +247,7 @@ static void BarMainPlayerCleanup (BarApp_t *app, pthread_t *playerThread) {
 	/* FIXME: pthread_join blocks everything if network connection
 	 * is hung up e.g. */
 	pthread_join (*playerThread, &threadRet);
+	pthread_mutex_destroy (&app->player.pauseMutex);
 
 	/* don't continue playback if thread reports error */
 	if (threadRet != (void *) PLAYER_RET_OK) {
@@ -328,24 +331,19 @@ static void BarMainLoop (BarApp_t *app) {
 
 		/* check whether player finished playing and start playing new
 		 * song */
-		if (app->player.mode >= PLAYER_FINISHED_PLAYBACK ||
-				app->player.mode == PLAYER_FREED) {
-			if (app->curStation != NULL) {
-				/* what's next? */
-				if (app->playlist != NULL) {
-					PianoSong_t *histsong = app->playlist;
-					app->playlist = app->playlist->next;
-					BarUiHistoryPrepend (app, histsong);
-				}
-				if (app->playlist == NULL) {
-					BarMainGetPlaylist (app);
-				}
-				/* song ready to play */
-				if (app->playlist != NULL) {
-					BarMainStartPlayback (app, &playerThread);
-				}
-
-				BarMainPrintTitle (app);
+		if (app->player.mode == PLAYER_FREED && app->curStation != NULL) {
+			/* what's next? */
+			if (app->playlist != NULL) {
+				PianoSong_t *histsong = app->playlist;
+				app->playlist = app->playlist->next;
+				BarUiHistoryPrepend (app, histsong);
+			}
+			if (app->playlist == NULL) {
+				BarMainGetPlaylist (app);
+			}
+			/* song ready to play */
+			if (app->playlist != NULL) {
+				BarMainStartPlayback (app, &playerThread);
 			}
 		}
 
@@ -384,6 +382,11 @@ int main (int argc, char **argv) {
 	BarTermSetBuffer (0);
 	#endif
 
+    #ifndef _WIN32
+	/* signals */
+	signal (SIGPIPE, SIG_IGN);
+    #endif
+
 	/* init some things */
 	ao_initialize ();
 
@@ -398,7 +401,7 @@ int main (int argc, char **argv) {
 			app.settings.device, app.settings.inkey, app.settings.outkey);
 
 	BarUiMsg (&app.settings, MSG_NONE,
-			"Welcome to " PACKAGE " (" VERSION_WIN32 " for Windows based on " VERSION ")! ");
+			"Welcome to " PACKAGE " (" VERSION ")! ");
 	if (app.settings.keys[BAR_KS_HELP] == BAR_KS_DISABLED) {
 		BarUiMsg (&app.settings, MSG_NONE, "\n");
 	} else {

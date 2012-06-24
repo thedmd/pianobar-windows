@@ -1317,12 +1317,16 @@ WaitressReturn_t WaitressFetchCall (WaitressHandle_t *waith) {
 		if ((wRet = WaitressSendRequest (waith)) == WAITRESS_RET_OK) {
 			wRet = WaitressReceiveResponse (waith);
 		}
+		if (waith->url.tls) {
+#if WAITRESS_USE_GNUTLS
+			gnutls_bye (waith->request.tlsSession, GNUTLS_SHUT_RDWR);
+#endif
+		}
 	}
 
 	/* cleanup */
 	if (waith->url.tls) {
 #if WAITRESS_USE_GNUTLS
-		gnutls_bye (waith->request.tlsSession, GNUTLS_SHUT_RDWR);
 		gnutls_deinit (waith->request.tlsSession);
 		gnutls_certificate_free_credentials (waith->tlsCred);
 #endif
@@ -1420,8 +1424,8 @@ const char *WaitressErrorToStr (WaitressReturn_t wRet) {
 
 		default:
 			{
-				static char errorMessage[64];
-				waitress_snprintf(errorMessage, 63, "No error message available for code %d.", wRet);
+				static char errorMessage[65];
+				waitress_snprintf(errorMessage, 64, "No error message available for code %d.", wRet);
 				errorMessage[64] = 0;
 				return errorMessage;
 			}

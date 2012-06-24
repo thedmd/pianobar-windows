@@ -29,9 +29,11 @@ THE SOFTWARE.
 #ifdef _MSC_VER
 #define piano_strdup	_strdup
 #define piano_snprintf	_snprintf
+#define piano_restrict
 #else
 #define piano_strdup	strdup
 #define piano_snprintf	snprintf
+#define piano_restrict  restrict
 #endif
 
 void PianoDestroyStation (PianoStation_t *station);

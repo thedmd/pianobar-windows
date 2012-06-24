@@ -17,14 +17,14 @@ BEGIN
 				BEGIN
 						VALUE "Comments", "Ported to Windows by Micha³ Cichoñ <thedmd@interia.pl>"
 						//VALUE "FileVersion", BUILD_VERSION
-						VALUE "ProductVersion", VERSION_WIN32 " based on " VERSION
+						VALUE "ProductVersion", VERSION
 #ifdef _DEBUG
 						VALUE "OriginalFilename", PACKAGE "-debug.exe"
 #else
 						VALUE "OriginalFilename", PACKAGE ".exe"
 #endif
 						VALUE "FileDescription", "Native client for Pandora Radio."
-						VALUE "LegalCopyright", "Copyright (C) 2011, Lars-Dominik Braun <lars@6xq.net>"
+						VALUE "LegalCopyright", "Copyright (C) 2011-2012, Lars-Dominik Braun <lars@6xq.net>"
 						VALUE "ProductName", "pianobar - Pandora Radio Client"
 						VALUE "PrivateBuild", "Micha³ Cichoñ <thedmd@interia.pl>"
 				END

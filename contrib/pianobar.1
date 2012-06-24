@@ -156,9 +156,8 @@ Increase volume.
 Replacement for %@ in station format string. It's " @ " by default.
 
 .TP
-.B audio_format = {aacplus-lofi,aacplus,mp3,mp3-hifi}
-Select audio format. aacplus is default if both libraries (faad, mad) are
-available. mp3-hifi is available for Pandora One customers only.
+.B audio_quality = {high, medium, low}
+Select audio quality.
 
 .TP
 .B autoselect = {1,0}
@@ -295,6 +294,9 @@ Your pandora.com password. Plain-text.
 .B proxy = http://user:password@host:port/
 Use a http proxy. Note that this setting overrides the http_proxy environment
 variable. Only "Basic" http authentication is supported.
+
+.TP
+.B rpc_host = tuner.pandora.com
 
 .TP
 .B sort = {name_az, name_za, quickmix_01_name_az, quickmix_01_name_za, quickmix_10_name_az, quickmix_10_name_za}

@@ -36,6 +36,7 @@ THE SOFTWARE.
  * http://pan-do-ra-api.wikia.com
  */
 
+#define PIANO_RPC_HOST "tuner.pianobar.com"
 #define PIANO_RPC_PATH "/services/json/?"
 
 typedef struct PianoUserInfo {
@@ -64,9 +65,14 @@ typedef enum {
 	PIANO_AF_UNKNOWN = 0,
 	PIANO_AF_AACPLUS = 1,
 	PIANO_AF_MP3 = 2,
-	PIANO_AF_MP3_HI = 3,
-	PIANO_AF_AACPLUS_LO = 4,
 } PianoAudioFormat_t;
+
+typedef enum {
+	PIANO_AQ_UNKNOWN = 0,
+	PIANO_AQ_LOW = 1,
+	PIANO_AQ_MEDIUM = 2,
+	PIANO_AQ_HIGH = 3,
+} PianoAudioQuality_t;
 
 typedef struct PianoSong {
 	char *artist;
@@ -177,7 +183,7 @@ typedef struct {
 
 typedef struct {
 	PianoStation_t *station;
-	PianoAudioFormat_t format;
+	PianoAudioQuality_t quality;
 	PianoSong_t *retPlaylist;
 } PianoRequestDataGetPlaylist_t;
 
@@ -210,11 +216,6 @@ typedef struct {
 } PianoRequestDataSearch_t;
 
 typedef struct {
-	char *type;
-	char *id;
-} PianoRequestDataCreateStation_t;
-
-typedef struct {
 	PianoStation_t *station;
 	char *musicId;
 } PianoRequestDataAddSeed_t;
@@ -243,7 +244,10 @@ typedef enum {
 	PIANO_RET_INVALID_RESPONSE = 2,
 	PIANO_RET_CONTINUE_REQUEST = 3,
 	PIANO_RET_OUT_OF_MEMORY = 4,
+	PIANO_RET_INVALID_LOGIN = 5,
+	PIANO_RET_QUALITY_UNAVAILABLE = 6,
 
+	/* pandora error codes */
 	PIANO_RET_P_INTERNAL = PIANO_RET_OFFSET+0,
 	PIANO_RET_P_API_VERSION_NOT_SUPPORTED = PIANO_RET_OFFSET+11,
 	PIANO_RET_P_BIRTH_YEAR_INVALID = PIANO_RET_OFFSET+1025,
@@ -283,7 +287,7 @@ typedef enum {
 	PIANO_RET_P_URL_PARAM_MISSING_USER_ID = PIANO_RET_OFFSET+5,
 	PIANO_RET_P_USERNAME_ALREADY_EXISTS = PIANO_RET_OFFSET+1013,
 	PIANO_RET_P_USER_ALREADY_USED_TRIAL = PIANO_RET_OFFSET+1037,
-	PIANO_RET_P_USER_NOT_ACTIVE = PIANO_RET_OFFSET+1003,
+	PIANO_RET_P_LISTENER_NOT_AUTHORIZED = PIANO_RET_OFFSET+1003,
 	PIANO_RET_P_USER_NOT_AUTHORIZED = PIANO_RET_OFFSET+1004,
 	PIANO_RET_P_ZIP_CODE_INVALID = PIANO_RET_OFFSET+1024,
 

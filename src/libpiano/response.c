@@ -49,6 +49,30 @@ static void PianoJsonParseStation (json_object *j, PianoStation_t *s) {
 			"isQuickMix"));
 }
 
+/*	concat strings
+ *	@param destination
+ *	@param source string
+ *	@param destination size
+ */
+static void PianoStrpcat (char * piano_restrict dest, const char * piano_restrict src,
+		size_t len) {
+	/* skip to end of string */
+	while (*dest != '\0' && len > 1) {
+		++dest;
+		--len;
+	}
+
+	/* append until source exhaused or destination full */
+	while (*src != '\0' && len > 1) {
+		*dest = *src;
+		++dest;
+		++src;
+		--len;
+	}
+
+	*dest = '\0';
+}
+
 /*	parse xml response and update data structures/return new data structure
  *	@param piano handle
  *	@param initialized request (expects responseData to be a NUL-terminated
@@ -76,6 +100,17 @@ PianoReturn_t PianoResponse (PianoHandle_t *ph, PianoRequest_t *req) {
 			ret = PIANO_RET_INVALID_RESPONSE;
 		} else {
 			ret = json_object_get_int (code)+PIANO_RET_OFFSET;
+
+			if (ret == PIANO_RET_P_INVALID_PARTNER_LOGIN &&
+					req->type == PIANO_REQUEST_LOGIN) {
+				PianoRequestDataLogin_t *reqData = req->data;
+				if (reqData->step == 1) {
+					/* return value is ambiguous, as both, partnerLogin and
+					 * userLogin return INVALID_PARTNER_LOGIN. Fix that to provide
+					 * better error messages. */
+					ret = PIANO_RET_INVALID_LOGIN;
+				}
+			}
 		}
 
 		json_object_put (j);
@@ -192,13 +227,19 @@ PianoReturn_t PianoResponse (PianoHandle_t *ph, PianoRequest_t *req) {
 
 		case PIANO_REQUEST_GET_PLAYLIST: {
 			/* get playlist, usually four songs */
+            static const char *qualityMap[] = {"", "lowQuality", "mediumQuality",
+                "highQuality"};
+            static const char *formatMap[] = {"", "aacplus", "mp3"};
+
 			PianoRequestDataGetPlaylist_t *reqData = req->data;
 			PianoSong_t *playlist = NULL;
 			json_object *items;
+            json_object *map;
 			int i;
 
 			assert (req->responseData != NULL);
 			assert (reqData != NULL);
+			assert (reqData->quality != PIANO_AQ_UNKNOWN);
 
 			items = json_object_object_get (result, "items");
 			assert (items != NULL);
@@ -216,7 +257,35 @@ PianoReturn_t PianoResponse (PianoHandle_t *ph, PianoRequest_t *req) {
 					continue;
 				}
 
-				song->audioUrl = PianoJsonStrdup (s, "additionalAudioUrl");
+				/* get audio url based on selected quality */
+				assert (reqData->quality < sizeof (qualityMap)/sizeof (*qualityMap));
+				map = json_object_object_get (s, "audioUrlMap");
+				assert (map != NULL);
+
+				if (map != NULL) {
+					map = json_object_object_get (map, qualityMap[reqData->quality]);
+
+					if (map != NULL) {
+						const char *encoding = json_object_get_string (
+								json_object_object_get (map, "encoding"));
+                        size_t k;
+						assert (encoding != NULL);
+						for (k = 0; k < sizeof (formatMap)/sizeof (*formatMap); k++) {
+							if (strcmp (formatMap[k], encoding) == 0) {
+								song->audioFormat = k;
+								break;
+							}
+						}
+						song->audioUrl = PianoJsonStrdup (map, "audioUrl");
+					} else {
+						/* requested quality is not available */
+						ret = PIANO_RET_QUALITY_UNAVAILABLE;
+						free (song);
+						PianoDestroyPlaylist (playlist);
+						goto cleanup;
+					}
+				}
+
 				song->artist = PianoJsonStrdup (s, "artistName");
 				song->album = PianoJsonStrdup (s, "albumName");
 				song->title = PianoJsonStrdup (s, "songName");
@@ -226,7 +295,6 @@ PianoReturn_t PianoResponse (PianoHandle_t *ph, PianoRequest_t *req) {
 				song->detailUrl = PianoJsonStrdup (s, "songDetailUrl");
 				song->fileGain = (float)json_object_get_double (
 						json_object_object_get (s, "trackGain"));
-				song->audioFormat = reqData->format;
 				switch (json_object_get_int (json_object_object_get (s,
 						"songRating"))) {
 					case 1:
@@ -503,7 +571,7 @@ PianoReturn_t PianoResponse (PianoHandle_t *ph, PianoRequest_t *req) {
 		case PIANO_REQUEST_EXPLAIN: {
 			/* explain why song was selected */
 			PianoRequestDataExplain_t *reqData = req->data;
-			const size_t strSize = 1024;
+			const size_t strSize = 768;
 			size_t pos = 0;
 			json_object *explanations;
 			int i;
@@ -516,24 +584,19 @@ PianoReturn_t PianoResponse (PianoHandle_t *ph, PianoRequest_t *req) {
 						sizeof (*reqData->retExplain));
 				strncpy (reqData->retExplain, "We're playing this track "
 						"because it features ", strSize);
-				pos = strlen (reqData->retExplain);
 				for (i=0; i < json_object_array_length (explanations); i++) {
 					json_object *e = json_object_array_get_idx (explanations,
 							i);
 					const char *s = json_object_get_string (
 							json_object_object_get (e, "focusTraitName"));
 
-					strncpy (&reqData->retExplain[pos], s, strSize-pos-1);
-					pos += strlen (s);
+					PianoStrpcat (reqData->retExplain, s, strSize);
 					if (i < json_object_array_length (explanations)-2) {
-						strncpy (&reqData->retExplain[pos], ", ", strSize-pos-1);
-						pos += 2;
+						PianoStrpcat (reqData->retExplain, ", ", strSize);
 					} else if (i == json_object_array_length (explanations)-2) {
-						strncpy (&reqData->retExplain[pos], " and ", strSize-pos-1);
-						pos += 5;
+						PianoStrpcat (reqData->retExplain, " and ", strSize);
 					} else {
-						strncpy (&reqData->retExplain[pos], ".", strSize-pos-1);
-						pos += 1;
+						PianoStrpcat (reqData->retExplain, ".", strSize);
 					}
 				}
 			}
@@ -652,6 +715,7 @@ PianoReturn_t PianoResponse (PianoHandle_t *ph, PianoRequest_t *req) {
 		}
 	}
 
+cleanup:
 	json_object_put (j);
 
 	return ret;

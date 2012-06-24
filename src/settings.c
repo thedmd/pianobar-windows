@@ -35,6 +35,8 @@ THE SOFTWARE.
 #include <limits.h>
 #include <assert.h>
 
+#include <piano.h>
+
 #include "settings.h"
 #include "config.h"
 #include "ui_dispatch.h"
@@ -130,13 +132,7 @@ void BarSettingsRead (BarSettings_t *settings) {
 			sizeof (dispatchActions) / sizeof (*dispatchActions));
 
 	/* apply defaults */
-	#ifdef ENABLE_FAAD
-	settings->audioFormat = PIANO_AF_AACPLUS;
-	#else
-		#ifdef ENABLE_MAD
-		settings->audioFormat = PIANO_AF_MP3;
-		#endif
-	#endif
+	settings->audioQuality = PIANO_AQ_HIGH;
 	settings->autoselect = true;
 	settings->history = 5;
 	settings->volume = 0;
@@ -147,7 +143,7 @@ void BarSettingsRead (BarSettings_t *settings) {
 	settings->npSongFormat = bar_strdup ("\"%t\" by \"%a\" on \"%l\"%r%@%s");
 	settings->npStationFormat = bar_strdup ("Station \"%n\" (%i)");
 	settings->listSongFormat = bar_strdup ("%i) %a - %t%r");
-	settings->rpcHost = bar_strdup("tuner.pandora.com");
+	settings->rpcHost = bar_strdup(PIANO_RPC_HOST);
 	settings->partnerUser = bar_strdup ("android");
 	settings->partnerPassword = bar_strdup ("AC7IBG09A3DTSYM4R41UJWL07VLN8JI7");
 	settings->device = bar_strdup ("android-generic");
@@ -241,15 +237,13 @@ void BarSettingsRead (BarSettings_t *settings) {
 					break;
 				}
 			}
-		} else if (streq ("audio_format", key)) {
-			if (streq (val, "aacplus")) {
-				settings->audioFormat = PIANO_AF_AACPLUS;
-			} else if (streq (val, "aacplus-lofi")) {
-				settings->audioFormat = PIANO_AF_AACPLUS_LO;
-			} else if (streq (val, "mp3")) {
-				settings->audioFormat = PIANO_AF_MP3;
-			} else if (streq (val, "mp3-hifi")) {
-				settings->audioFormat = PIANO_AF_MP3_HI;
+		} else if (streq ("audio_quality", key)) {
+			if (streq (val, "low")) {
+				settings->audioQuality = PIANO_AQ_LOW;
+			} else if (streq (val, "medium")) {
+				settings->audioQuality = PIANO_AQ_MEDIUM;
+			} else if (streq (val, "high")) {
+				settings->audioQuality = PIANO_AQ_HIGH;
 			}
 		} else if (streq ("autostart_station", key)) {
 			settings->autostartStation = bar_strdup (val);
