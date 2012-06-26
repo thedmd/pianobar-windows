@@ -36,7 +36,7 @@ THE SOFTWARE.
  * http://pan-do-ra-api.wikia.com
  */
 
-#define PIANO_RPC_HOST "tuner.pianobar.com"
+#define PIANO_RPC_HOST "tuner.pandora.com"
 #define PIANO_RPC_PATH "/services/json/?"
 
 typedef struct PianoUserInfo {
