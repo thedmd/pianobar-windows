@@ -76,6 +76,7 @@ typedef enum {
 	WAITRESS_RET_NOTFOUND,
 	WAITRESS_RET_FORBIDDEN,
 	WAITRESS_RET_CONNECT_REFUSED,
+	WAITRESS_RET_RETRY,
 	WAITRESS_RET_SOCK_ERR,
 	WAITRESS_RET_GETADDR_ERR,
 	WAITRESS_RET_CB_ABORT,
@@ -134,6 +135,8 @@ typedef struct {
 #if WAITRESS_USE_POLARSSL
 		polarssl_ctx* sslCtx;
 #endif
+
+		int retriesLeft;
 
 	} request;
 } WaitressHandle_t;
