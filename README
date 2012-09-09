@@ -23,7 +23,7 @@ CHANGES
 
  - codebase was brought back into pre-C99 in order to comply with Microsoft
        compiler
- - GnuTLS was replaced with modified version of axTLS library
+ - GnuTLS was replaced by much lighter PolarSSL (http://polarssl.org/)
  - libwaitress was adjusted to work also with Windows Sockets
  - terminal related code was opt-out and replaced by equivalent using
        Windows console

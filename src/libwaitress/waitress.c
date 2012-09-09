@@ -1157,10 +1157,15 @@ static WaitressReturn_t WaitressReceiveHeaders (WaitressHandle_t *waith,
 		/* split */
 		while (hdrParseMode != HDRM_FINISHED &&
 				(nextLine = WaitressGetline (thisLine)) != NULL) {
+
+			int httpStatusCode = -1;
+
 			switch (hdrParseMode) {
 				/* Status code */
 				case HDRM_HEAD:
-					switch (WaitressParseStatusline (thisLine)) {
+					httpStatusCode = WaitressParseStatusline (thisLine);
+
+					switch (httpStatusCode) {
 						case 200:
 						case 206:
 							hdrParseMode = HDRM_LINES;
@@ -1172,6 +1177,16 @@ static WaitressReturn_t WaitressReceiveHeaders (WaitressHandle_t *waith,
 
 						case 404:
 							return WAITRESS_RET_NOTFOUND;
+							break;
+
+						case 407:
+							/* Fix for GlobalPandora.com. Proxy sometimes 'miss' credentials.
+							 * Same request send again is handled properly.
+							 */
+							if (WaitressProxyEnabled (waith))
+								return WAITRESS_RET_RETRY;
+							else
+								return WAITRESS_RET_STATUS_UNKNOWN;
 							break;
 
 						case -1:
@@ -1273,6 +1288,7 @@ WaitressReturn_t WaitressFetchCall (WaitressHandle_t *waith) {
 	waith->request.dataHandler = WaitressHandleIdentity;
 	waith->request.read = WaitressOrdinaryRead;
 	waith->request.write = WaitressOrdinaryWrite;
+	waith->request.retriesLeft = 3;
 
 	if (waith->url.tls) {
 #if WAITRESS_USE_GNUTLS
@@ -1317,15 +1333,20 @@ WaitressReturn_t WaitressFetchCall (WaitressHandle_t *waith) {
 			sizeof (*waith->request.buf));
 
 	/* request */
-	if ((wRet = WaitressConnect (waith)) == WAITRESS_RET_OK) {
-		if ((wRet = WaitressSendRequest (waith)) == WAITRESS_RET_OK) {
-			wRet = WaitressReceiveResponse (waith);
-		}
-		if (waith->url.tls) {
+	while (waith->request.retriesLeft-- > 0) {
+		if ((wRet = WaitressConnect (waith)) == WAITRESS_RET_OK) {
+			if ((wRet = WaitressSendRequest (waith)) == WAITRESS_RET_OK) {
+				wRet = WaitressReceiveResponse (waith);
+			}
+			if (waith->url.tls) {
 #if WAITRESS_USE_GNUTLS
-			gnutls_bye (waith->request.tlsSession, GNUTLS_SHUT_RDWR);
+				gnutls_bye (waith->request.tlsSession, GNUTLS_SHUT_RDWR);
 #endif
+			}
 		}
+
+		if (wRet != WAITRESS_RET_RETRY)
+			break;
 	}
 
 	/* cleanup */
@@ -1376,6 +1397,10 @@ const char *WaitressErrorToStr (WaitressReturn_t wRet) {
 
 		case WAITRESS_RET_CONNECT_REFUSED:
 			return "Connection refused.";
+			break;
+
+		case WAITRESS_RET_RETRY:
+			return "Retry.";
 			break;
 
 		case WAITRESS_RET_SOCK_ERR:
