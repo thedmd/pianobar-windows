@@ -206,12 +206,33 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 
 		case PIANO_REQUEST_CREATE_STATION: {
 			/* create new station from specified musicToken or station number */
-			char *token = req->data;
+			PianoRequestDataCreateStation_t *reqData = req->data;
 
-			assert (token != NULL);
+			assert (reqData != NULL);
+			assert (reqData->token != NULL);
 
-			json_object_object_add (j, "musicToken",
-					json_object_new_string (token));
+			if (reqData->type == PIANO_MUSICTYPE_INVALID) {
+				json_object_object_add (j, "musicToken",
+						json_object_new_string (reqData->token));
+			} else {
+				json_object_object_add (j, "trackToken",
+						json_object_new_string (reqData->token));
+				switch (reqData->type) {
+					case PIANO_MUSICTYPE_SONG:
+						json_object_object_add (j, "musicType",
+								json_object_new_string ("song"));
+						break;
+
+					case PIANO_MUSICTYPE_ARTIST:
+						json_object_object_add (j, "musicType",
+								json_object_new_string ("artist"));
+						break;
+
+					default:
+						assert (0);
+						break;
+				}
+			}
 
 			method = "station.createStation";
 			break;
@@ -400,42 +421,6 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 			ret = PianoRequest (ph, req, PIANO_REQUEST_ADD_FEEDBACK);
 			/* and reset request type/data */
 			req->type = PIANO_REQUEST_RATE_SONG;
-			req->data = reqData;
-
-			goto cleanup;
-			break;
-		}
-
-		case PIANO_REQUEST_MOVE_SONG: {
-			/* move song to a different station, needs two requests */
-			PianoRequestDataMoveSong_t *reqData = req->data;
-			PianoRequestDataAddFeedback_t transformedReqData;
-
-			assert (reqData != NULL);
-			assert (reqData->song != NULL);
-			assert (reqData->from != NULL);
-			assert (reqData->to != NULL);
-			assert (reqData->step < 2);
-
-			transformedReqData.trackToken = reqData->song->trackToken;
-			req->data = &transformedReqData;
-
-			switch (reqData->step) {
-				case 0:
-					transformedReqData.stationId = reqData->from->id;
-					transformedReqData.rating = PIANO_RATE_BAN;
-					break;
-
-				case 1:
-					transformedReqData.stationId = reqData->to->id;
-					transformedReqData.rating = PIANO_RATE_LOVE;
-					break;
-			}
-
-			/* create request data (url, post data) */
-			ret = PianoRequest (ph, req, PIANO_REQUEST_ADD_FEEDBACK);
-			/* and reset request type/data */
-			req->type = PIANO_REQUEST_MOVE_SONG;
 			req->data = reqData;
 
 			goto cleanup;

@@ -150,14 +150,45 @@ BarUiActCallback(BarUiActBanSong) {
 BarUiActCallback(BarUiActCreateStation) {
 	PianoReturn_t pRet;
 	WaitressReturn_t wRet;
-	char *id = NULL;
+	PianoRequestDataCreateStation_t reqData;
 
-	id = BarUiSelectMusicId (app, NULL,
+	reqData.type = PIANO_MUSICTYPE_INVALID;
+	reqData.token = BarUiSelectMusicId (app, NULL,
 			"Create station from artist or title: ");
-	if (id != NULL) {
+	if (reqData.token != NULL) {
 		BarUiMsg (&app->settings, MSG_INFO, "Creating station... ");
-		BarUiActDefaultPianoCall (PIANO_REQUEST_CREATE_STATION, id);
-		free (id);
+		BarUiActDefaultPianoCall (PIANO_REQUEST_CREATE_STATION, &reqData);
+		free (reqData.token);
+		BarUiActDefaultEventcmd ("stationcreate");
+	}
+}
+
+/*	create new station
+ */
+BarUiActCallback(BarUiActCreateStationFromSong) {
+	PianoReturn_t pRet;
+	WaitressReturn_t wRet;
+	PianoRequestDataCreateStation_t reqData;
+	char selectBuf[2];
+
+	reqData.token = selSong->trackToken;
+	reqData.type = PIANO_MUSICTYPE_INVALID;
+
+	BarUiMsg (&app->settings, MSG_QUESTION, "Create station from [s]ong or [a]rtist? ");
+	BarReadline (selectBuf, sizeof (selectBuf), "sa", &app->input,
+			BAR_RL_FULLRETURN, -1);
+	switch (selectBuf[0]) {
+		case 's':
+			reqData.type = PIANO_MUSICTYPE_SONG;
+			break;
+
+		case 'a':
+			reqData.type = PIANO_MUSICTYPE_ARTIST;
+			break;
+	}
+	if (reqData.type != PIANO_MUSICTYPE_INVALID) {
+		BarUiMsg (&app->settings, MSG_INFO, "Creating station... ");
+		BarUiActDefaultPianoCall (PIANO_REQUEST_CREATE_STATION, &reqData);
 		BarUiActDefaultEventcmd ("stationcreate");
 	}
 }
@@ -168,12 +199,16 @@ BarUiActCallback(BarUiActAddSharedStation) {
 	PianoReturn_t pRet;
 	WaitressReturn_t wRet;
 	char stationId[50];
+	PianoRequestDataCreateStation_t reqData;
+
+	reqData.token = stationId;
+	reqData.type = PIANO_MUSICTYPE_INVALID;
 
 	BarUiMsg (&app->settings, MSG_QUESTION, "Station id: ");
 	if (BarReadline (stationId, sizeof (stationId), "0123456789", &app->input,
 			BAR_RL_DEFAULT, -1) > 0) {
 		BarUiMsg (&app->settings, MSG_INFO, "Adding shared station... ");
-		BarUiActDefaultPianoCall (PIANO_REQUEST_CREATE_STATION, stationId);
+		BarUiActDefaultPianoCall (PIANO_REQUEST_CREATE_STATION, &reqData);
 		BarUiActDefaultEventcmd ("stationaddshared");
 	}
 }
@@ -301,43 +336,6 @@ BarUiActCallback(BarUiActLoveSong) {
  */
 BarUiActCallback(BarUiActSkipSong) {
 	BarUiDoSkipSong (&app->player);
-}
-
-/*	move song to different station
- */
-BarUiActCallback(BarUiActMoveSong) {
-	PianoReturn_t pRet;
-	WaitressReturn_t wRet;
-	PianoRequestDataMoveSong_t reqData;
-
-	assert (selSong != NULL);
-
-	reqData.step = 0;
-
-	reqData.to = BarUiSelectStation (app, app->ph.stations,
-			"Move song to station: ", NULL, false);
-	if (reqData.to != NULL) {
-		/* find original station (just is case we're playing a quickmix
-		 * station) */
-		reqData.from = PianoFindStationById (app->ph.stations,
-				selSong->stationId);
-		if (reqData.from == NULL) {
-			BarUiMsg (&app->settings, MSG_ERR, "Station not found\n");
-			return;
-		}
-
-		if (!BarTransformIfShared (app, reqData.from) ||
-				!BarTransformIfShared (app, reqData.to)) {
-			return;
-		}
-		BarUiMsg (&app->settings, MSG_INFO, "Moving song to \"%s\"... ", reqData.to->name);
-		reqData.song = selSong;
-		if (BarUiActDefaultPianoCall (PIANO_REQUEST_MOVE_SONG, &reqData) &&
-				selSong == app->playlist) {
-			BarUiDoSkipSong (&app->player);
-		}
-		BarUiActDefaultEventcmd ("songmove");
-	}
 }
 
 /*	pause

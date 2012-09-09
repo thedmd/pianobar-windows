@@ -4,7 +4,7 @@
 /* package name */
 #define PACKAGE "pianobar"
 
-#define VERSION "2012.06.24-win32"
+#define VERSION "2012.09.07-win32"
 
 #ifdef _MSC_VER
 #define INLINE			__forceinline

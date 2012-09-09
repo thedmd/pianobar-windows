@@ -154,6 +154,10 @@ static void WaitressStaticInit (void) {
 
 #if WAITRESS_USE_GNUTLS
 		gnutls_global_init ();
+
+		gcry_check_version (NULL);
+		gcry_control (GCRYCTL_DISABLE_SECMEM, 0);
+		gcry_control (GCRYCTL_INITIALIZATION_FINISHED, 0);
 #endif
 
 		atexit (WaitressStaticFree);

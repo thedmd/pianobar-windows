@@ -571,6 +571,7 @@ char *BarUiSelectMusicId (BarApp_t *app, PianoStation_t *station,
 void BarStationFromGenre (BarApp_t *app) {
 	PianoReturn_t pRet;
 	WaitressReturn_t wRet;
+	PianoRequestDataCreateStation_t reqData;
 	PianoGenreCategory_t *curCat;
 	PianoGenre_t *curGenre;
 	int i;
@@ -628,8 +629,10 @@ void BarStationFromGenre (BarApp_t *app) {
 	} while (curGenre == NULL);
 
 	/* create station */
+	reqData.token = curGenre->musicId;
+	reqData.type = PIANO_MUSICTYPE_INVALID;
 	BarUiMsg (&app->settings, MSG_INFO, "Adding shared station \"%s\"... ", curGenre->name);
-	BarUiPianoCall (app, PIANO_REQUEST_CREATE_STATION, curGenre->musicId, &pRet, &wRet);
+	BarUiPianoCall (app, PIANO_REQUEST_CREATE_STATION, &reqData, &pRet, &wRet);
 }
 
 /*	replaces format characters (%x) in format string with custom strings

@@ -147,7 +147,6 @@ typedef enum {
 	PIANO_REQUEST_GET_PLAYLIST = 3,
 	PIANO_REQUEST_RATE_SONG = 4,
 	PIANO_REQUEST_ADD_FEEDBACK = 5,
-	PIANO_REQUEST_MOVE_SONG = 6,
 	PIANO_REQUEST_RENAME_STATION = 7,
 	PIANO_REQUEST_DELETE_STATION = 8,
 	PIANO_REQUEST_SEARCH = 9,
@@ -199,13 +198,6 @@ typedef struct {
 } PianoRequestDataAddFeedback_t;
 
 typedef struct {
-	PianoSong_t *song;
-	PianoStation_t *from;
-	PianoStation_t *to;
-	unsigned short step;
-} PianoRequestDataMoveSong_t;
-
-typedef struct {
 	PianoStation_t *station;
 	char *newName;
 } PianoRequestDataRenameStation_t;
@@ -214,6 +206,15 @@ typedef struct {
 	char *searchStr;
 	PianoSearchResult_t searchResult;
 } PianoRequestDataSearch_t;
+
+typedef struct {
+	char *token;
+	enum {
+		PIANO_MUSICTYPE_INVALID = 0,
+		PIANO_MUSICTYPE_SONG,
+		PIANO_MUSICTYPE_ARTIST,
+	} type;
+} PianoRequestDataCreateStation_t;
 
 typedef struct {
 	PianoStation_t *station;
