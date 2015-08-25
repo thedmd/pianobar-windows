@@ -27,6 +27,7 @@ THE SOFTWARE.
 
 #include "ui.h"
 #include "ui_readline.h"
+#include "console.h"
 #include <assert.h>
 
 typedef int (*BarSortFunc_t) (const void *, const void *);
@@ -73,6 +74,27 @@ static const char *BarStrCaseStr (const char *haystack, const char *needle) {
 	return NULL;
 }
 
+char* BatStrFormat (const char* format, va_list args) {
+	static const size_t c_initial_buffer_size = 256;
+
+	char* buffer = malloc(c_initial_buffer_size);
+	size_t buffer_size = c_initial_buffer_size;
+
+	int chars_writen;
+	while ((chars_writen = _vsnprintf(buffer, buffer_size - 1, format, args)) < 0) {
+		size_t new_buffer_size = buffer_size * 3 / 2;
+		if (new_buffer_size < buffer_size) { /* handle overflow */
+			chars_writen = buffer_size;
+			break;
+		}
+
+		buffer = realloc(buffer, new_buffer_size);
+		buffer_size = new_buffer_size;
+	}
+
+	return buffer;
+}
+
 /*	output message and flush stdout
  *	@param message
  */
@@ -91,6 +113,7 @@ void BarUiMsg (const BarSettings_t *settings, const BarUiMsg_t type,
 		case MSG_ERR:
 		case MSG_QUESTION:
 		case MSG_LIST:
+		case MSG_DEBUG:
 			/* print ANSI clear line */
 
 			fputs ("\033[2K", stdout);
@@ -106,6 +129,15 @@ void BarUiMsg (const BarSettings_t *settings, const BarUiMsg_t type,
 
 	va_start (fmtargs, format);
 	vprintf (format, fmtargs);
+
+	if (type == MSG_DEBUG) {
+		char* msg = BatStrFormat (format, fmtargs);
+		if (msg != NULL) {
+			BarConsoleSetClipboard (msg);
+			free (msg);
+		}
+	}
+
 	va_end (fmtargs);
 
 	if (settings->msgFormat[type].postfix != NULL) {
@@ -696,6 +728,10 @@ void BarUiPrintSong (const BarSettings_t *settings,
 			"talr@su", vals);
 	BarUiAppendNewline (outstr, sizeof (outstr));
 	BarUiMsg (settings, MSG_PLAYING, "%s", outstr);
+
+	BarUiCustomFormat(outstr, sizeof(outstr), settings->titleFormat,
+		"talr@su", vals);
+	BarConsoleSetTitle(outstr);
 }
 
 /*	Print list of songs

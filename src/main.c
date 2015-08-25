@@ -247,6 +247,8 @@ static void BarMainPlayerCleanup (BarApp_t *app) {
 
 	BarPlayer2Finish(app->player);
 
+	BarConsoleSetTitle (TITLE);
+
 	//if (threadRet == (void *) PLAYER_RET_OK) {
 	//	app->playerErrors = 0;
 	//} else if (threadRet == (void *) PLAYER_RET_SOFTFAIL) {
@@ -339,6 +341,8 @@ int main (int argc, char **argv) {
 	memset (&app, 0, sizeof (app));
 
 	BarConsoleInit ();
+
+	BarConsoleSetTitle (TITLE);
 
 	/* init some things */
 	BarPlayer2Init (&app.player);

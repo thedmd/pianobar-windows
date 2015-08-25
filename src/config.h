@@ -6,6 +6,8 @@
 
 #define VERSION "2014.09.28-dev"
 
+#define TITLE   "Pianobar"
+
 /* Visual C++ name restrict differently */
 #ifdef _WIN32
 #define restrict __restrict
