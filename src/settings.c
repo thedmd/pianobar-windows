@@ -197,6 +197,8 @@ void BarSettingsRead (BarSettings_t *settings) {
 	settings->msgFormat[MSG_QUESTION].postfix = NULL;
 	settings->msgFormat[MSG_LIST].prefix = strdup ("\t");
 	settings->msgFormat[MSG_LIST].postfix = NULL;
+	settings->msgFormat[MSG_DEBUG].prefix = NULL;
+	settings->msgFormat[MSG_DEBUG].postfix = NULL;
 
 	for (size_t i = 0; i < BAR_KS_COUNT; i++) {
 		settings->keys[i] = dispatchActions[i].defaultKey;
@@ -331,7 +333,7 @@ void BarSettingsRead (BarSettings_t *settings) {
 			} else if (strncmp (formatMsgPrefix, key,
 					strlen (formatMsgPrefix)) == 0) {
 				static const char *mapping[] = {"none", "info", "nowplaying",
-						"time", "err", "question", "list"};
+						"time", "err", "question", "list", "debug"};
 				const char *typeStart = key + strlen (formatMsgPrefix);
 				for (size_t i = 0; i < sizeof (mapping) / sizeof (*mapping); i++) {
 					if (streq (typeStart, mapping[i])) {

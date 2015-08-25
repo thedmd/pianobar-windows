@@ -344,8 +344,7 @@ BarUiActCallback(BarUiActDebug) {
 	assert (selSong != NULL);
 
 	/* print debug-alike infos */
-	BarUiMsg (&app->settings, MSG_NONE,
-			"\033[2K"
+	BarUiMsg (&app->settings, MSG_DEBUG,
 			"album:\t%s\n"
 			"artist:\t%s\n"
 			"audioFormat:\t%i\n"

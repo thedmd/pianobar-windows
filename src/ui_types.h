@@ -32,7 +32,8 @@ typedef enum {
 	MSG_ERR = 4,
 	MSG_QUESTION = 5,
 	MSG_LIST = 6,
-	MSG_COUNT = 7, /* invalid type */
+	MSG_DEBUG = 7,
+	MSG_COUNT = 8, /* invalid type */
 } BarUiMsg_t;
 
 #endif /* SRC_UI_TYPES_H_2HR75RII */
