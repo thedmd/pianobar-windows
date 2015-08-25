@@ -225,8 +225,9 @@ static void BarMainStartPlayback (BarApp_t *app) {
 			strncmp (curSong->audioUrl, httpPrefix, strlen (httpPrefix)) != 0) {
 		BarUiMsg (&app->settings, MSG_ERR, "Invalid song url.\n");
 	} else {
-		BarPlayer2Open(app->player, curSong->audioUrl);
+        BarPlayer2Finish(app->player);
 		BarPlayer2SetGain(app->player, curSong->fileGain);
+		BarPlayer2Open(app->player, curSong->audioUrl);
 
 		/* throw event */
 		BarUiStartEventCmd (&app->settings, "songstart",
