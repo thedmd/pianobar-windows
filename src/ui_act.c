@@ -26,8 +26,6 @@ THE SOFTWARE.
 #include "config.h"
 
 #include <string.h>
-#include <unistd.h>
-#include <pthread.h>
 #include <assert.h>
 #include <string.h>
 
