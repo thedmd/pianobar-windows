@@ -384,22 +384,23 @@ void BarConsoleEraseLine (int mode) {
 void BarConsoleSetClipboard(const char* text) {
 	WCHAR* wideString;
 	HANDLE stringHandle;
-	size_t wideSize;
+	size_t wideSize, wideBytes;
 
 	wideSize = MultiByteToWideChar(CP_UTF8, 0, text, -1, NULL, 0);
-	wideString = calloc(1, (wideSize + 1) * sizeof(WCHAR));
+	wideBytes = wideSize * sizeof(WCHAR);
+	wideString = malloc(wideBytes);
 	if (!wideString)
 		return;
 
 	MultiByteToWideChar(CP_UTF8, 0, text, -1, wideString, wideSize);
 
-	stringHandle = GlobalAlloc(GMEM_MOVEABLE, wideSize);
+	stringHandle = GlobalAlloc(GMEM_MOVEABLE, wideBytes);
 	if (!stringHandle) {
 		free(wideString);
 		return;
 	}
 
-	memcpy(GlobalLock(stringHandle), wideString, wideSize);
+	memcpy(GlobalLock(stringHandle), wideString, wideBytes);
 
 	GlobalUnlock(stringHandle);
 
