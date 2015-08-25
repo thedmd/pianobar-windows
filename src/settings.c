@@ -25,40 +25,48 @@ THE SOFTWARE.
 
 #include "config.h"
 
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <limits.h>
-#include <assert.h>
-#include <sys/types.h>
-#include <pwd.h>
-#include <unistd.h>
-
-#include <piano.h>
-
 #include "settings.h"
 #include "config.h"
 #include "ui_dispatch.h"
+#include <stdlib.h>
+#include <assert.h>
+
+#define PACKAGE_CONFIG	PACKAGE ".cfg"
+#define PACKAGE_STATE	PACKAGE ".state"
+#define PACKAGE_PIPE 	PACKAGE ".ctrl"
 
 #define streq(a, b) (strcmp (a, b) == 0)
+
+static char* strndup(const char *s, size_t n)
+{
+	char *result;
+	const char* end = memchr(s, 0, n);
+	size_t len = end ? (size_t)(end - s) : n;
+
+	if (len < n)
+		n = len;
+
+	result = (char *)malloc(n + 1);
+	if (!result)
+		return 0;
+
+	result[n] = '\0';
+
+	return (char*)memcpy(result, s, n);
+}
 
 /*	Get current user’s home directory
  */
 static char *BarSettingsGetHome () {
-	char *home;
+	char* exec = NULL;
+	char* delimiter = NULL;
 
-	/* try environment variable */
-	if ((home = getenv ("HOME")) != NULL && strlen (home) > 0) {
-		return strdup (home);
-	}
-
-	/* try passwd mechanism */
-	struct passwd * const pw = getpwuid (getuid ());
-	if (pw != NULL && pw->pw_dir != NULL && strlen (pw->pw_dir) > 0) {
-		return strdup (pw->pw_dir);
-	}
-
-	return NULL;
+	_get_pgmptr	(&exec);
+	delimiter = strrchr (exec, '\\');
+	if (delimiter)
+		return strndup (exec, delimiter - exec);
+	else
+		return NULL;
 }
 
 /*	Get XDG config directory, which is set by BarSettingsRead (if not set)
@@ -73,7 +81,7 @@ static char *BarGetXdgConfigDir (const char * const filename) {
 		const size_t len = (strlen (xdgConfigDir) + 1 +
 				strlen (filename) + 1);
 		char * const concat = malloc (len * sizeof (*concat));
-		snprintf (concat, len, "%s/%s", xdgConfigDir, filename);
+		snprintf (concat, len, "%s\\%s", xdgConfigDir, filename);
 		return concat;
 	}
 
@@ -140,13 +148,13 @@ void BarSettingsDestroy (BarSettings_t *settings) {
  *	@return nothing yet
  */
 void BarSettingsRead (BarSettings_t *settings) {
-	char * const configfiles[] = {PACKAGE "/state", PACKAGE "/config"};
+	char * const configfiles[] = { PACKAGE_STATE, PACKAGE_CONFIG };
 	char * const userhome = BarSettingsGetHome ();
 	assert (userhome != NULL);
 	/* set xdg config path (if not set) */
-	char * const defaultxdg = malloc (strlen (userhome) + strlen ("/.config") + 1);
-	sprintf (defaultxdg, "%s/.config", userhome);
-	setenv ("XDG_CONFIG_HOME", defaultxdg, 0);
+	char * const defaultxdg = malloc (strlen ("XDG_CONFIG_HOME=") + strlen (userhome) + 1);
+	sprintf (defaultxdg, "XDG_CONFIG_HOME=%s", userhome);
+	_putenv (defaultxdg);
 	free (defaultxdg);
 
 	assert (sizeof (settings->keys) / sizeof (*settings->keys) ==
@@ -172,7 +180,7 @@ void BarSettingsRead (BarSettings_t *settings) {
 	settings->device = strdup ("android-generic");
 	settings->inkey = strdup ("R=U!LH$O2B#");
 	settings->outkey = strdup ("6#26FRL$ZWD");
-	settings->fifo = BarGetXdgConfigDir (PACKAGE "/ctl");
+	settings->fifo = BarGetXdgConfigDir (PACKAGE_PIPE);
 	assert (settings->fifo != NULL);
 
 	settings->msgFormat[MSG_NONE].prefix = NULL;
@@ -363,11 +371,6 @@ void BarSettingsRead (BarSettings_t *settings) {
 		if (tmpProxy != NULL && strlen (tmpProxy) > 0) {
 			settings->proxy = strdup (tmpProxy);
 		}
-	}
-
-	/* ffmpeg does not support setting an http proxy explicitly */
-	if (settings->proxy != NULL) {
-		setenv ("http_proxy", settings->proxy, 1);
 	}
 
 	free (userhome);

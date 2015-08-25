@@ -28,6 +28,8 @@ THE SOFTWARE.
 
 #include <piano.h>
 
+#include "ui_types.h"
+
 /* update structure in ui_dispatch.h if you add shortcuts here */
 typedef enum {
 	BAR_KS_HELP = 0,
@@ -76,8 +78,6 @@ typedef enum {
 	BAR_SORT_COUNT = 6,
 } BarStationSorting_t;
 
-#include "ui_types.h"
-
 typedef struct {
 	char *prefix;
 	char *postfix;
@@ -106,8 +106,6 @@ typedef struct {
 	char keys[BAR_KS_COUNT];
 	BarMsgFormatStr_t msgFormat[MSG_COUNT];
 } BarSettings_t;
-
-#include <piano.h>
 
 void BarSettingsInit (BarSettings_t *);
 void BarSettingsDestroy (BarSettings_t *);

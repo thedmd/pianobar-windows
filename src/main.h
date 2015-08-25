@@ -28,21 +28,21 @@ THE SOFTWARE.
 
 #include <piano.h>
 
-#include "player.h"
+#include "player2.h"
 #include "settings.h"
 #include "ui_readline.h"
 
 typedef struct {
 	PianoHandle_t ph;
 	CURL *http;
-	player_t player;
+	player2_t player;
 	BarSettings_t settings;
 	/* first item is current song */
 	PianoSong_t *playlist;
 	PianoSong_t *songHistory;
 	PianoStation_t *curStation;
 	char doQuit;
-	BarReadlineFds_t input;
+	BarReadline_t rl;
 	unsigned int playerErrors;
 } BarApp_t;
 

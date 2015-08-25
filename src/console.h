@@ -1,6 +1,6 @@
 /*
-Copyright (c) 2008-2014
-	Lars-Dominik Braun <lars@6xq.net>
+Copyright (c) 2015
+	Micha³ Cichoñ <thedmd@interia.pl>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -21,38 +21,25 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#include <termios.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h>
-#include <signal.h>
+#ifndef SRC_CONSOLE_H_WY8F3MNH
+#define SRC_CONSOLE_H_WY8F3MNH
 
-#include "terminal.h"
+#include "config.h"
 
-/* need a global variable here, since these functions get called from a signal
- * handler */
-static struct termios restore;
+#include <windows.h>
 
-/*	init terminal attributes when continuing, assuming the shell modified them;
- *	tcget/setattr and signal are async signal safe */
-static void BarTermHandleCont (int sig) {
-	BarTermInit ();
-}
+void BarConsoleInit ();
+void BarConsoleDestroy ();
+HANDLE BarConsoleGetStdIn ();
+HANDLE BarConsoleGetStdOut ();
+void BarConsoleSetTitle (const char* title);
+void BarConsoleSetSize (int width, int height);
+void BarConsoleSetCursorPosition (COORD position);
+COORD BarConsoleGetCursorPosition ();
+COORD BarConsoleMoveCursor (int xoffset);
+void BarConsoleEraseCharacter ();
+void BarConsoleEraseLine (int mode); // 0 - from cursor, 1 - to cursor, 2 - entire line
 
-void BarTermInit () {
-	struct termios newopt;
+void BarConsoleSetClipboard (const char*);
 
-	tcgetattr (STDIN_FILENO, &restore);
-	memcpy (&newopt, &restore, sizeof (newopt));
-
-	/* disable echoing and line buffer */
-	newopt.c_lflag &= ~(ECHO | ICANON);
-	tcsetattr (STDIN_FILENO, TCSANOW, &newopt);
-
-	signal (SIGCONT, BarTermHandleCont);
-}
-
-void BarTermRestore () {
-	tcsetattr (STDIN_FILENO, TCSANOW, &restore);
-}
-
+#endif /* SRC_CONSOLE_H_WY8F3MNH */

@@ -25,22 +25,9 @@ THE SOFTWARE.
 
 #include "config.h"
 
-#include <stdio.h>
-#include <stdarg.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <string.h>
-#include <errno.h>
-#include <strings.h>
-#include <assert.h>
-#include <ctype.h> /* tolower() */
-
-/* waitpid () */
-#include <sys/types.h>
-#include <sys/wait.h>
-
 #include "ui.h"
 #include "ui_readline.h"
+#include <assert.h>
 
 typedef int (*BarSortFunc_t) (const void *, const void *);
 
@@ -105,6 +92,7 @@ void BarUiMsg (const BarSettings_t *settings, const BarUiMsg_t type,
 		case MSG_QUESTION:
 		case MSG_LIST:
 			/* print ANSI clear line */
+
 			fputs ("\033[2K", stdout);
 			break;
 
@@ -438,7 +426,7 @@ PianoStation_t *BarUiSelectStation (BarApp_t *app, PianoStation_t *stations,
 			BarUiMsg (&app->settings, MSG_NONE, "%zi\n", lastDisplayed);
 			retStation = sortedStations[lastDisplayed];
 		} else {
-			if (BarReadlineStr (buf, sizeof (buf), &app->input,
+			if (BarReadlineStr (buf, sizeof (buf), app->rl,
 					BAR_RL_DEFAULT) == 0) {
 				break;
 			}
@@ -468,7 +456,7 @@ PianoStation_t *BarUiSelectStation (BarApp_t *app, PianoStation_t *stations,
  *	@return pointer to selected item in song list or NULL
  */
 PianoSong_t *BarUiSelectSong (const BarSettings_t *settings,
-		PianoSong_t *startSong, BarReadlineFds_t *input) {
+		PianoSong_t *startSong, BarReadline_t rl) {
 	PianoSong_t *tmpSong = NULL;
 	char buf[100];
 
@@ -478,7 +466,7 @@ PianoSong_t *BarUiSelectSong (const BarSettings_t *settings,
 		BarUiListSongs (settings, startSong, buf);
 
 		BarUiMsg (settings, MSG_QUESTION, "Select song: ");
-		if (BarReadlineStr (buf, sizeof (buf), input, BAR_RL_DEFAULT) == 0) {
+		if (BarReadlineStr (buf, sizeof (buf), rl, BAR_RL_DEFAULT) == 0) {
 			return NULL;
 		}
 
@@ -516,7 +504,7 @@ PianoArtist_t *BarUiSelectArtist (BarApp_t *app, PianoArtist_t *startArtist) {
 		}
 
 		BarUiMsg (&app->settings, MSG_QUESTION, "Select artist: ");
-		if (BarReadlineStr (buf, sizeof (buf), &app->input,
+		if (BarReadlineStr (buf, sizeof (buf), app->rl,
 				BAR_RL_DEFAULT) == 0) {
 			return NULL;
 		}
@@ -546,7 +534,7 @@ char *BarUiSelectMusicId (BarApp_t *app, PianoStation_t *station,
 	PianoSong_t *tmpSong;
 
 	BarUiMsg (&app->settings, MSG_QUESTION, "%s", msg);
-	if (BarReadlineStr (lineBuf, sizeof (lineBuf), &app->input,
+	if (BarReadlineStr (lineBuf, sizeof (lineBuf), app->rl,
 			BAR_RL_DEFAULT) > 0) {
 		PianoReturn_t pRet;
 		CURLcode wRet;
@@ -566,7 +554,7 @@ char *BarUiSelectMusicId (BarApp_t *app, PianoStation_t *station,
 				searchResult.artists != NULL) {
 			/* songs and artists found */
 			BarUiMsg (&app->settings, MSG_QUESTION, "Is this an [a]rtist or [t]rack name? ");
-			BarReadline (selectBuf, sizeof (selectBuf), "at", &app->input,
+			BarReadline (selectBuf, sizeof (selectBuf), "at", app->rl,
 					BAR_RL_FULLRETURN, -1);
 			if (*selectBuf == 'a') {
 				tmpArtist = BarUiSelectArtist (app, searchResult.artists);
@@ -575,7 +563,7 @@ char *BarUiSelectMusicId (BarApp_t *app, PianoStation_t *station,
 				}
 			} else if (*selectBuf == 't') {
 				tmpSong = BarUiSelectSong (&app->settings, searchResult.songs,
-						&app->input);
+						app->rl);
 				if (tmpSong != NULL) {
 					musicId = strdup (tmpSong->musicId);
 				}
@@ -583,7 +571,7 @@ char *BarUiSelectMusicId (BarApp_t *app, PianoStation_t *station,
 		} else if (searchResult.songs != NULL) {
 			/* songs found */
 			tmpSong = BarUiSelectSong (&app->settings, searchResult.songs,
-					&app->input);
+					app->rl);
 			if (tmpSong != NULL) {
 				musicId = strdup (tmpSong->musicId);
 			}
@@ -751,103 +739,103 @@ size_t BarUiListSongs (const BarSettings_t *settings,
  */
 void BarUiStartEventCmd (const BarSettings_t *settings, const char *type,
 		const PianoStation_t *curStation, const PianoSong_t *curSong,
-		const player_t * const player, PianoStation_t *stations,
+		const player2_t * const player, PianoStation_t *stations,
 		PianoReturn_t pRet, CURLcode wRet) {
-	pid_t chld;
-	int pipeFd[2];
+	//pid_t chld;
+	//int pipeFd[2];
 
-	if (settings->eventCmd == NULL) {
+	//if (settings->eventCmd == NULL) {
 		/* nothing to do... */
 		return;
-	}
+	//}
 
-	if (pipe (pipeFd) == -1) {
-		BarUiMsg (settings, MSG_ERR, "Cannot create eventcmd pipe. (%s)\n", strerror (errno));
-		return;
-	}
+	//if (pipe (pipeFd) == -1) {
+	//	BarUiMsg (settings, MSG_ERR, "Cannot create eventcmd pipe. (%s)\n", strerror (errno));
+	//	return;
+	//}
 
-	chld = fork ();
-	if (chld == 0) {
-		/* child */
-		close (pipeFd[1]);
-		dup2 (pipeFd[0], fileno (stdin));
-		execl (settings->eventCmd, settings->eventCmd, type, (char *) NULL);
-		BarUiMsg (settings, MSG_ERR, "Cannot start eventcmd. (%s)\n", strerror (errno));
-		close (pipeFd[0]);
-		exit (1);
-	} else if (chld == -1) {
-		BarUiMsg (settings, MSG_ERR, "Cannot fork eventcmd. (%s)\n", strerror (errno));
-	} else {
-		/* parent */
-		int status;
-		PianoStation_t *songStation = NULL;
-		FILE *pipeWriteFd;
+	//chld = fork ();
+	//if (chld == 0) {
+	//	/* child */
+	//	close (pipeFd[1]);
+	//	dup2 (pipeFd[0], fileno (stdin));
+	//	execl (settings->eventCmd, settings->eventCmd, type, (char *) NULL);
+	//	BarUiMsg (settings, MSG_ERR, "Cannot start eventcmd. (%s)\n", strerror (errno));
+	//	close (pipeFd[0]);
+	//	exit (1);
+	//} else if (chld == -1) {
+	//	BarUiMsg (settings, MSG_ERR, "Cannot fork eventcmd. (%s)\n", strerror (errno));
+	//} else {
+	//	/* parent */
+	//	int status;
+	//	PianoStation_t *songStation = NULL;
+	//	FILE *pipeWriteFd;
 
-		close (pipeFd[0]);
+	//	close (pipeFd[0]);
 
-		pipeWriteFd = fdopen (pipeFd[1], "w");
+	//	pipeWriteFd = fdopen (pipeFd[1], "w");
 
-		if (curSong != NULL && stations != NULL && curStation->isQuickMix) {
-			songStation = PianoFindStationById (stations, curSong->stationId);
-		}
+	//	if (curSong != NULL && stations != NULL && curStation->isQuickMix) {
+	//		songStation = PianoFindStationById (stations, curSong->stationId);
+	//	}
 
-		fprintf (pipeWriteFd,
-				"artist=%s\n"
-				"title=%s\n"
-				"album=%s\n"
-				"coverArt=%s\n"
-				"stationName=%s\n"
-				"songStationName=%s\n"
-				"pRet=%i\n"
-				"pRetStr=%s\n"
-				"wRet=%i\n"
-				"wRetStr=%s\n"
-				"songDuration=%u\n"
-				"songPlayed=%u\n"
-				"rating=%i\n"
-				"detailUrl=%s\n",
-				curSong == NULL ? "" : curSong->artist,
-				curSong == NULL ? "" : curSong->title,
-				curSong == NULL ? "" : curSong->album,
-				curSong == NULL ? "" : curSong->coverArt,
-				curStation == NULL ? "" : curStation->name,
-				songStation == NULL ? "" : songStation->name,
-				pRet,
-				PianoErrorToStr (pRet),
-				wRet,
-				curl_easy_strerror (wRet),
-				player->songDuration,
-				player->songPlayed,
-				curSong == NULL ? PIANO_RATE_NONE : curSong->rating,
-				curSong == NULL ? "" : curSong->detailUrl
-				);
+	//	fprintf (pipeWriteFd,
+	//			"artist=%s\n"
+	//			"title=%s\n"
+	//			"album=%s\n"
+	//			"coverArt=%s\n"
+	//			"stationName=%s\n"
+	//			"songStationName=%s\n"
+	//			"pRet=%i\n"
+	//			"pRetStr=%s\n"
+	//			"wRet=%i\n"
+	//			"wRetStr=%s\n"
+	//			"songDuration=%u\n"
+	//			"songPlayed=%u\n"
+	//			"rating=%i\n"
+	//			"detailUrl=%s\n",
+	//			curSong == NULL ? "" : curSong->artist,
+	//			curSong == NULL ? "" : curSong->title,
+	//			curSong == NULL ? "" : curSong->album,
+	//			curSong == NULL ? "" : curSong->coverArt,
+	//			curStation == NULL ? "" : curStation->name,
+	//			songStation == NULL ? "" : songStation->name,
+	//			pRet,
+	//			PianoErrorToStr (pRet),
+	//			wRet,
+	//			curl_easy_strerror (wRet),
+	//			player->songDuration,
+	//			player->songPlayed,
+	//			curSong == NULL ? PIANO_RATE_NONE : curSong->rating,
+	//			curSong == NULL ? "" : curSong->detailUrl
+	//			);
 
-		if (stations != NULL) {
-			/* send station list */
-			PianoStation_t **sortedStations = NULL;
-			size_t stationCount;
-			sortedStations = BarSortedStations (stations, &stationCount,
-					settings->sortOrder);
-			assert (sortedStations != NULL);
+	//	if (stations != NULL) {
+	//		/* send station list */
+	//		PianoStation_t **sortedStations = NULL;
+	//		size_t stationCount;
+	//		sortedStations = BarSortedStations (stations, &stationCount,
+	//				settings->sortOrder);
+	//		assert (sortedStations != NULL);
 
-			fprintf (pipeWriteFd, "stationCount=%zd\n", stationCount);
+	//		fprintf (pipeWriteFd, "stationCount=%zd\n", stationCount);
 
-			for (size_t i = 0; i < stationCount; i++) {
-				const PianoStation_t *currStation = sortedStations[i];
-				fprintf (pipeWriteFd, "station%zd=%s\n", i,
-						currStation->name);
-			}
-			free (sortedStations);
-		} else {
-			const char * const msg = "stationCount=0\n";
-			fwrite (msg, sizeof (*msg), strlen (msg), pipeWriteFd);
-		}
-	
-		/* closes pipeFd[1] as well */
-		fclose (pipeWriteFd);
-		/* wait to get rid of the zombie */
-		waitpid (chld, &status, 0);
-	}
+	//		for (size_t i = 0; i < stationCount; i++) {
+	//			const PianoStation_t *currStation = sortedStations[i];
+	//			fprintf (pipeWriteFd, "station%zd=%s\n", i,
+	//					currStation->name);
+	//		}
+	//		free (sortedStations);
+	//	} else {
+	//		const char * const msg = "stationCount=0\n";
+	//		fwrite (msg, sizeof (*msg), strlen (msg), pipeWriteFd);
+	//	}
+	//
+	//	/* closes pipeFd[1] as well */
+	//	fclose (pipeWriteFd);
+	//	/* wait to get rid of the zombie */
+	//	waitpid (chld, &status, 0);
+	//}
 }
 
 /*	prepend song to history

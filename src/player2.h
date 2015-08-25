@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2008-2010
+Copyright (c) 2008-2014
 	Lars-Dominik Braun <lars@6xq.net>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -21,10 +21,32 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#ifndef SRC_TERMINAL_H_WY8F3MNH
-#define SRC_TERMINAL_H_WY8F3MNH
+#ifndef SRC_PLAYER2_H_CN979RE9
+#define SRC_PLAYER2_H_CN979RE9
 
-void BarTermInit ();
-void BarTermRestore ();
+#include "config.h"
 
-#endif /* SRC_TERMINAL_H_WY8F3MNH */
+#include <stdbool.h>
+
+typedef struct _player_t *player2_t;
+
+bool BarPlayer2Init (player2_t*);
+void BarPlayer2Destroy (player2_t);
+void BarPlayer2SetVolume (player2_t,float);
+float BarPlayer2GetVolume (player2_t);
+void BarPlayer2SetGain (player2_t, float);
+float BarPlayer2GetGain (player2_t);
+double BarPlayer2GetDuration (player2_t);
+double BarPlayer2GetTime (player2_t);
+bool BarPlayer2Open (player2_t, const char*);
+bool BarPlayer2Play (player2_t);
+bool BarPlayer2Pause (player2_t);
+bool BarPlayer2Stop (player2_t);
+bool BarPlayer2Finish (player2_t);
+bool BarPlayer2IsPlaying (player2_t);
+bool BarPlayer2IsPaused (player2_t);
+bool BarPlayer2IsStopped (player2_t);
+bool BarPlayer2IsFinished (player2_t);
+
+#endif /* SRC_PLAYER2_H_CN979RE9 */
+

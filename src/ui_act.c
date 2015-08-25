@@ -49,14 +49,10 @@ THE SOFTWARE.
 /*	helper to _really_ skip a song (unlock mutex, quit player)
  *	@param player handle
  */
-static inline void BarUiDoSkipSong (player_t * const player) {
+static inline void BarUiDoSkipSong (player2_t player) {
 	assert (player != NULL);
 
-	pthread_mutex_lock (&player->pauseMutex);
-	player->doQuit = true;
-	player->doPause = false;
-	pthread_cond_broadcast (&player->pauseCond);
-	pthread_mutex_unlock (&player->pauseMutex);
+	BarPlayer2Stop(player);
 }
 
 /*	transform station if necessary to allow changes like rename, rate, ...
@@ -148,7 +144,7 @@ BarUiActCallback(BarUiActBanSong) {
 	BarUiMsg (&app->settings, MSG_INFO, "Banning song... ");
 	if (BarUiActDefaultPianoCall (PIANO_REQUEST_RATE_SONG, &reqData) &&
 			selSong == app->playlist) {
-		BarUiDoSkipSong (&app->player);
+		BarUiDoSkipSong (app->player);
 	}
 	BarUiActDefaultEventcmd ("songban");
 }
@@ -183,7 +179,7 @@ BarUiActCallback(BarUiActCreateStationFromSong) {
 	reqData.type = PIANO_MUSICTYPE_INVALID;
 
 	BarUiMsg (&app->settings, MSG_QUESTION, "Create station from [s]ong or [a]rtist? ");
-	BarReadline (selectBuf, sizeof (selectBuf), "sa", &app->input,
+	BarReadline (selectBuf, sizeof (selectBuf), "sa", app->rl,
 			BAR_RL_FULLRETURN, -1);
 	switch (selectBuf[0]) {
 		case 's':
@@ -213,7 +209,7 @@ BarUiActCallback(BarUiActAddSharedStation) {
 	reqData.type = PIANO_MUSICTYPE_INVALID;
 
 	BarUiMsg (&app->settings, MSG_QUESTION, "Station id: ");
-	if (BarReadline (stationId, sizeof (stationId), "0123456789", &app->input,
+	if (BarReadline (stationId, sizeof (stationId), "0123456789", app->rl,
 			BAR_RL_DEFAULT, -1) > 0) {
 		BarUiMsg (&app->settings, MSG_INFO, "Adding shared station... ");
 		BarUiActDefaultPianoCall (PIANO_REQUEST_CREATE_STATION, &reqData);
@@ -231,11 +227,11 @@ BarUiActCallback(BarUiActDeleteStation) {
 
 	BarUiMsg (&app->settings, MSG_QUESTION, "Really delete \"%s\"? [yN] ",
 			selStation->name);
-	if (BarReadlineYesNo (false, &app->input)) {
+	if (BarReadlineYesNo (false, app->rl)) {
 		BarUiMsg (&app->settings, MSG_INFO, "Deleting station... ");
 		if (BarUiActDefaultPianoCall (PIANO_REQUEST_DELETE_STATION,
 				selStation) && selStation == app->curStation) {
-			BarUiDoSkipSong (&app->player);
+			BarUiDoSkipSong (app->player);
 			PianoDestroyPlaylist (PianoListNextP (app->playlist));
 			app->playlist->head.next = NULL;
 			BarUiHistoryPrepend (app, app->playlist);
@@ -296,7 +292,7 @@ BarUiActCallback(BarUiActStationFromGenre) {
 	do {
 		/* select category or exit */
 		BarUiMsg (&app->settings, MSG_QUESTION, "Select category: ");
-		if (BarReadlineInt (&i, &app->input) == 0) {
+		if (BarReadlineInt (&i, app->rl) == 0) {
 			return;
 		}
 		curCat = PianoListGetP (app->ph.genreStations, i);
@@ -312,7 +308,7 @@ BarUiActCallback(BarUiActStationFromGenre) {
 
 	do {
 		BarUiMsg (&app->settings, MSG_QUESTION, "Select genre: ");
-		if (BarReadlineInt (&i, &app->input) == 0) {
+		if (BarReadlineInt (&i, app->rl) == 0) {
 			return;
 		}
 		curGenre = PianoListGetP (curCat->genres, i);
@@ -349,6 +345,7 @@ BarUiActCallback(BarUiActDebug) {
 
 	/* print debug-alike infos */
 	BarUiMsg (&app->settings, MSG_NONE,
+			"\033[2K"
 			"album:\t%s\n"
 			"artist:\t%s\n"
 			"audioFormat:\t%i\n"
@@ -407,34 +404,28 @@ BarUiActCallback(BarUiActLoveSong) {
 /*	skip song
  */
 BarUiActCallback(BarUiActSkipSong) {
-	BarUiDoSkipSong (&app->player);
+	BarUiDoSkipSong (app->player);
 }
 
 /*	play
  */
 BarUiActCallback(BarUiActPlay) {
-	pthread_mutex_lock (&app->player.pauseMutex);
-	app->player.doPause = false;
-	pthread_cond_broadcast (&app->player.pauseCond);
-	pthread_mutex_unlock (&app->player.pauseMutex);
+	BarPlayer2Play(app->player);
 }
 
 /*	pause
  */
 BarUiActCallback(BarUiActPause) {
-	pthread_mutex_lock (&app->player.pauseMutex);
-	app->player.doPause = true;
-	pthread_cond_broadcast (&app->player.pauseCond);
-	pthread_mutex_unlock (&app->player.pauseMutex);
+	BarPlayer2Pause(app->player);
 }
 
 /*	toggle pause
  */
 BarUiActCallback(BarUiActTogglePause) {
-	pthread_mutex_lock (&app->player.pauseMutex);
-	app->player.doPause = !app->player.doPause;
-	pthread_cond_broadcast (&app->player.pauseCond);
-	pthread_mutex_unlock (&app->player.pauseMutex);
+	if (BarPlayer2IsPlaying(app->player))
+		BarPlayer2Play(app->player);
+	else
+		BarPlayer2Pause(app->player);
 }
 
 /*	rename current station
@@ -447,7 +438,7 @@ BarUiActCallback(BarUiActRenameStation) {
 	assert (selStation != NULL);
 
 	BarUiMsg (&app->settings, MSG_QUESTION, "New name: ");
-	if (BarReadlineStr (lineBuf, sizeof (lineBuf), &app->input, BAR_RL_DEFAULT) > 0) {
+	if (BarReadlineStr (lineBuf, sizeof (lineBuf), app->rl, BAR_RL_DEFAULT) > 0) {
 		PianoRequestDataRenameStation_t reqData;
 		if (!BarTransformIfShared (app, selStation)) {
 			return;
@@ -470,7 +461,7 @@ BarUiActCallback(BarUiActSelectStation) {
 	if (newStation != NULL) {
 		app->curStation = newStation;
 		BarUiPrintStation (&app->settings, app->curStation);
-		BarUiDoSkipSong (&app->player);
+		BarUiDoSkipSong (app->player);
 		if (app->playlist != NULL) {
 			PianoDestroyPlaylist (PianoListNextP (app->playlist));
 			app->playlist->head.next = NULL;
@@ -491,7 +482,7 @@ BarUiActCallback(BarUiActTempBanSong) {
 	BarUiMsg (&app->settings, MSG_INFO, "Putting song on shelf... ");
 	if (BarUiActDefaultPianoCall (PIANO_REQUEST_ADD_TIRED_SONG, selSong) &&
 			selSong == app->playlist) {
-		BarUiDoSkipSong (&app->player);
+		BarUiDoSkipSong (app->player);
 	}
 	BarUiActDefaultEventcmd ("songshelf");
 }
@@ -573,7 +564,7 @@ BarUiActCallback(BarUiActSelectQuickMix) {
  */
 BarUiActCallback(BarUiActQuit) {
 	app->doQuit = true;
-	BarUiDoSkipSong (&app->player);
+	BarUiDoSkipSong (app->player);
 }
 
 /*	song history
@@ -584,7 +575,7 @@ BarUiActCallback(BarUiActHistory) {
 
 	if (app->songHistory != NULL) {
 		histSong = BarUiSelectSong (&app->settings, app->songHistory,
-				&app->input);
+				app->rl);
 		if (histSong != NULL) {
 			BarKeyShortcutId_t action;
 			PianoStation_t *songStation = PianoFindStationById (app->ph.stations,
@@ -600,7 +591,7 @@ BarUiActCallback(BarUiActHistory) {
 
 				BarUiMsg (&app->settings, MSG_QUESTION, "What to do with this song? ");
 
-				if (BarReadline (buf, sizeof (buf), NULL, &app->input,
+				if (BarReadline (buf, sizeof (buf), NULL, app->rl,
 						BAR_RL_FULLRETURN, -1) > 0) {
 					/* actions assume that selStation is the song's original
 					 * station */
@@ -625,7 +616,7 @@ BarUiActCallback(BarUiActBookmark) {
 	assert (selSong != NULL);
 
 	BarUiMsg (&app->settings, MSG_QUESTION, "Bookmark [s]ong or [a]rtist? ");
-	BarReadline (selectBuf, sizeof (selectBuf), "sa", &app->input,
+	BarReadline (selectBuf, sizeof (selectBuf), "sa", app->rl,
 			BAR_RL_FULLRETURN, -1);
 	if (selectBuf[0] == 's') {
 		BarUiMsg (&app->settings, MSG_INFO, "Bookmarking song... ");
@@ -642,21 +633,21 @@ BarUiActCallback(BarUiActBookmark) {
  */
 BarUiActCallback(BarUiActVolDown) {
 	--app->settings.volume;
-	BarPlayerSetVolume (&app->player);
+	BarPlayer2SetVolume (app->player, (float)app->settings.volume);
 }
 
 /*	increase volume
  */
 BarUiActCallback(BarUiActVolUp) {
 	++app->settings.volume;
-	BarPlayerSetVolume (&app->player);
+	BarPlayer2SetVolume (app->player, (float)app->settings.volume);
 }
 
 /*	reset volume
  */
 BarUiActCallback(BarUiActVolReset) {
 	app->settings.volume = 0;
-	BarPlayerSetVolume (&app->player);
+	BarPlayer2SetVolume (app->player, (float)app->settings.volume);
 }
 
 static const char *boolToYesNo (const bool value) {
@@ -691,7 +682,7 @@ BarUiActCallback(BarUiActSettings) {
 		int val;
 
 		BarUiMsg (&app->settings, MSG_QUESTION, "Change setting: ");
-		if (BarReadlineInt (&val, &app->input) == 0) {
+		if (BarReadlineInt (&val, app->rl) == 0) {
 			break;
 		}
 
@@ -700,7 +691,7 @@ BarUiActCallback(BarUiActSettings) {
 				/* username */
 				char buf[80];
 				BarUiMsg (&app->settings, MSG_QUESTION, "New username: ");
-				if (BarReadlineStr (buf, sizeof (buf), &app->input,
+				if (BarReadlineStr (buf, sizeof (buf), app->rl,
 						BAR_RL_DEFAULT) > 0) {
 					reqData.newUsername = strdup (buf);
 					modified = true;
@@ -712,7 +703,7 @@ BarUiActCallback(BarUiActSettings) {
 				/* password */
 				char buf[80];
 				BarUiMsg (&app->settings, MSG_QUESTION, "New password: ");
-				if (BarReadlineStr (buf, sizeof (buf), &app->input,
+				if (BarReadlineStr (buf, sizeof (buf), app->rl,
 						BAR_RL_NOECHO) > 0) {
 					reqData.newPassword = strdup (buf);
 					modified = true;
@@ -728,7 +719,7 @@ BarUiActCallback(BarUiActSettings) {
 						"Enable explicit content filter? [yn] ");
 				reqData.explicitContentFilter =
 						BarReadlineYesNo (settings.explicitContentFilter,
-						&app->input) ? PIANO_TRUE : PIANO_FALSE;
+						app->rl) ? PIANO_TRUE : PIANO_FALSE;
 				modified = true;
 				break;
 			}
@@ -822,7 +813,7 @@ BarUiActCallback(BarUiActManageStation) {
 	}
 
 	BarUiMsg (&app->settings, MSG_QUESTION, "%s", question);
-	if (BarReadline (selectBuf, sizeof (selectBuf), allowedActions, &app->input,
+	if (BarReadline (selectBuf, sizeof (selectBuf), allowedActions, app->rl,
 					BAR_RL_FULLRETURN, -1)) {
 		if (selectBuf[0] == 'a') {
 			PianoArtist_t *artist = BarUiSelectArtist (app,
@@ -839,7 +830,7 @@ BarUiActCallback(BarUiActManageStation) {
 			}
 		} else if (selectBuf[0] == 's') {
 			PianoSong_t *song = BarUiSelectSong (&app->settings,
-					reqData.info.songSeeds, &app->input);
+					reqData.info.songSeeds, app->rl);
 			if (song != NULL) {
 				PianoRequestDataDeleteSeed_t subReqData;
 
@@ -866,7 +857,7 @@ BarUiActCallback(BarUiActManageStation) {
 			}
 		} else if (selectBuf[0] == 'f') {
 			PianoSong_t *song = BarUiSelectSong (&app->settings,
-					reqData.info.feedback, &app->input);
+					reqData.info.feedback, app->rl);
 			if (song != NULL) {
 				BarUiMsg (&app->settings, MSG_INFO, "Deleting feedback... ");
 				BarUiActDefaultPianoCall (PIANO_REQUEST_DELETE_FEEDBACK, song);

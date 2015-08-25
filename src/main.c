@@ -23,35 +23,11 @@ THE SOFTWARE.
 
 #include "config.h"
 
-/* system includes */
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-/* fork () */
-#include <unistd.h>
-#include <sys/select.h>
-#include <time.h>
-#include <ctype.h>
-/* open () */
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-/* tcset/getattr () */
-#include <termios.h>
-#include <pthread.h>
 #include <assert.h>
-#include <stdbool.h>
-#include <limits.h>
-#include <signal.h>
-/* waitpid () */
-#include <sys/types.h>
-#include <sys/wait.h>
-
-/* pandora.com library */
 #include <piano.h>
 
 #include "main.h"
-#include "terminal.h"
+#include "console.h"
 #include "ui.h"
 #include "ui_dispatch.h"
 #include "ui_readline.h"
@@ -79,14 +55,14 @@ static bool BarMainLoginUser (BarApp_t *app) {
 /*	ask for username/password if none were provided in settings
  */
 static bool BarMainGetLoginCredentials (BarSettings_t *settings,
-		BarReadlineFds_t *input) {
+		BarReadline_t rl) {
 	bool usernameFromConfig = true;
 
 	if (settings->username == NULL) {
 		char nameBuf[100];
 
 		BarUiMsg (settings, MSG_QUESTION, "Email: ");
-		BarReadlineStr (nameBuf, sizeof (nameBuf), input, BAR_RL_DEFAULT);
+		BarReadlineStr (nameBuf, sizeof (nameBuf), rl, BAR_RL_DEFAULT);
 		settings->username = strdup (nameBuf);
 		usernameFromConfig = false;
 	}
@@ -100,58 +76,59 @@ static bool BarMainGetLoginCredentials (BarSettings_t *settings,
 
 		if (settings->passwordCmd == NULL) {
 			BarUiMsg (settings, MSG_QUESTION, "Password: ");
-			BarReadlineStr (passBuf, sizeof (passBuf), input, BAR_RL_NOECHO);
+			BarReadlineStr (passBuf, sizeof (passBuf), rl, BAR_RL_NOECHO);
 			/* write missing newline */
 			puts ("");
 			settings->password = strdup (passBuf);
 		} else {
-			pid_t chld;
-			int pipeFd[2];
+			//pid_t chld;
+			//int pipeFd[2];
 
-			BarUiMsg (settings, MSG_INFO, "Requesting password from external helper... ");
+			//BarUiMsg (settings, MSG_INFO, "Requesting password from external helper... ");
 
-			if (pipe (pipeFd) == -1) {
-				BarUiMsg (settings, MSG_NONE, "Error: %s\n", strerror (errno));
-				return false;
-			}
+			//if (pipe (pipeFd) == -1) {
+			//	BarUiMsg (settings, MSG_NONE, "Error: %s\n", strerror (errno));
+			//	return false;
+			//}
 
-			chld = fork ();
-			if (chld == 0) {
-				/* child */
-				close (pipeFd[0]);
-				dup2 (pipeFd[1], fileno (stdout));
-				execl ("/bin/sh", "/bin/sh", "-c", settings->passwordCmd, (char *) NULL);
-				BarUiMsg (settings, MSG_NONE, "Error: %s\n", strerror (errno));
-				close (pipeFd[1]);
-				exit (1);
-			} else if (chld == -1) {
-				BarUiMsg (settings, MSG_NONE, "Error: %s\n", strerror (errno));
-				return false;
-			} else {
-				/* parent */
-				int status;
+			//chld = fork ();
+			//if (chld == 0) {
+			//	/* child */
+			//	close (pipeFd[0]);
+			//	dup2 (pipeFd[1], fileno (stdout));
+			//	execl ("/bin/sh", "/bin/sh", "-c", settings->passwordCmd, (char *) NULL);
+			//	BarUiMsg (settings, MSG_NONE, "Error: %s\n", strerror (errno));
+			//	close (pipeFd[1]);
+			//	exit (1);
+			//} else if (chld == -1) {
+			//	BarUiMsg (settings, MSG_NONE, "Error: %s\n", strerror (errno));
+			//	return false;
+			//} else {
+			//	/* parent */
+			//	int status;
 
-				close (pipeFd[1]);
-				memset (passBuf, 0, sizeof (passBuf));
-				read (pipeFd[0], passBuf, sizeof (passBuf)-1);
-				close (pipeFd[0]);
+			//	close (pipeFd[1]);
+			//	memset (passBuf, 0, sizeof (passBuf));
+			//	read (pipeFd[0], passBuf, sizeof (passBuf)-1);
+			//	close (pipeFd[0]);
 
-				/* drop trailing newlines */
-				ssize_t len = strlen (passBuf)-1;
-				while (len >= 0 && passBuf[len] == '\n') {
-					passBuf[len] = '\0';
-					--len;
-				}
+			//	/* drop trailing newlines */
+			//	ssize_t len = strlen (passBuf)-1;
+			//	while (len >= 0 && passBuf[len] == '\n') {
+			//		passBuf[len] = '\0';
+			//		--len;
+			//	}
 
-				waitpid (chld, &status, 0);
-				if (WEXITSTATUS (status) == 0) {
-					settings->password = strdup (passBuf);
-					BarUiMsg (settings, MSG_NONE, "Ok.\n");
-				} else {
-					BarUiMsg (settings, MSG_NONE, "Error: Exit status %i.\n", WEXITSTATUS (status));
-					return false;
-				}
-			}
+			//	waitpid (chld, &status, 0);
+			//	if (WEXITSTATUS (status) == 0) {
+			//		settings->password = strdup (passBuf);
+			//		BarUiMsg (settings, MSG_NONE, "Ok.\n");
+			//	} else {
+			//		BarUiMsg (settings, MSG_NONE, "Error: Exit status %i.\n", WEXITSTATUS (status));
+			//		return false;
+			//	}
+			//}
+			return false;
 		} /* end else passwordCmd */
 	}
 
@@ -172,7 +149,7 @@ static bool BarMainGetStations (BarApp_t *app) {
 	return ret;
 }
 
-/*	get initial station from autostart setting or user input
+/*	get initial station from autostart setting or user rl
  */
 static void BarMainGetInitialStation (BarApp_t *app) {
 	/* try to get autostart station */
@@ -194,11 +171,11 @@ static void BarMainGetInitialStation (BarApp_t *app) {
 	}
 }
 
-/*	wait for user input
+/*	wait for user rl
  */
 static void BarMainHandleUserInput (BarApp_t *app) {
 	char buf[2];
-	if (BarReadline (buf, sizeof (buf), NULL, &app->input,
+	if (BarReadline (buf, sizeof (buf), NULL, app->rl,
 			BAR_RL_FULLRETURN | BAR_RL_NOECHO, 1) > 0) {
 		BarUiDispatch (app, buf[0], app->curStation, app->playlist, true,
 				BAR_DC_GLOBAL);
@@ -232,9 +209,8 @@ static void BarMainGetPlaylist (BarApp_t *app) {
 
 /*	start new player thread
  */
-static void BarMainStartPlayback (BarApp_t *app, pthread_t *playerThread) {
+static void BarMainStartPlayback (BarApp_t *app) {
 	assert (app != NULL);
-	assert (playerThread != NULL);
 
 	const PianoSong_t * const curSong = app->playlist;
 	assert (curSong != NULL);
@@ -249,86 +225,66 @@ static void BarMainStartPlayback (BarApp_t *app, pthread_t *playerThread) {
 			strncmp (curSong->audioUrl, httpPrefix, strlen (httpPrefix)) != 0) {
 		BarUiMsg (&app->settings, MSG_ERR, "Invalid song url.\n");
 	} else {
-		/* setup player */
-		memset (&app->player, 0, sizeof (app->player));
-
-		app->player.url = curSong->audioUrl;
-		app->player.gain = curSong->fileGain;
-		app->player.settings = &app->settings;
-		app->player.songDuration = curSong->length;
-		pthread_mutex_init (&app->player.pauseMutex, NULL);
-		pthread_cond_init (&app->player.pauseCond, NULL);
+		BarPlayer2Open(app->player, curSong->audioUrl);
+		BarPlayer2SetGain(app->player, curSong->fileGain);
 
 		/* throw event */
 		BarUiStartEventCmd (&app->settings, "songstart",
 				app->curStation, curSong, &app->player, app->ph.stations,
 				PIANO_RET_OK, CURLE_OK);
 
-		/* prevent race condition, mode must _not_ be DEAD if
-		 * thread has been started */
-		app->player.mode = PLAYER_WAITING;
-		/* start player */
-		pthread_create (playerThread, NULL, BarPlayerThread,
-				&app->player);
+		BarPlayer2Play(app->player);
 	}
 }
 
 /*	player is done, clean up
  */
-static void BarMainPlayerCleanup (BarApp_t *app, pthread_t *playerThread) {
-	void *threadRet;
-
+static void BarMainPlayerCleanup (BarApp_t *app) {
 	BarUiStartEventCmd (&app->settings, "songfinish", app->curStation,
 			app->playlist, &app->player, app->ph.stations, PIANO_RET_OK,
 			CURLE_OK);
 
-	/* FIXME: pthread_join blocks everything if network connection
-	 * is hung up e.g. */
-	pthread_join (*playerThread, &threadRet);
-	pthread_cond_destroy (&app->player.pauseCond);
-	pthread_mutex_destroy (&app->player.pauseMutex);
+	BarPlayer2Finish(app->player);
 
-	if (threadRet == (void *) PLAYER_RET_OK) {
-		app->playerErrors = 0;
-	} else if (threadRet == (void *) PLAYER_RET_SOFTFAIL) {
-		++app->playerErrors;
-		if (app->playerErrors >= app->settings.maxPlayerErrors) {
-			/* don't continue playback if thread reports too many error */
-			app->curStation = NULL;
-		}
-	} else {
-		app->curStation = NULL;
-	}
-
-	memset (&app->player, 0, sizeof (app->player));
+	//if (threadRet == (void *) PLAYER_RET_OK) {
+	//	app->playerErrors = 0;
+	//} else if (threadRet == (void *) PLAYER_RET_SOFTFAIL) {
+	//	++app->playerErrors;
+	//	if (app->playerErrors >= app->settings.maxPlayerErrors) {
+	//		/* don't continue playback if thread reports too many error */
+	//		app->curStation = NULL;
+	//	}
+	//} else {
+	//	app->curStation = NULL;
+	//}
 }
 
 /*	print song duration
  */
 static void BarMainPrintTime (BarApp_t *app) {
-	unsigned int songRemaining;
+	double songPlayed, songDuration, songRemaining;
 	char sign;
 
-	if (app->player.songPlayed <= app->player.songDuration) {
-		songRemaining = app->player.songDuration - app->player.songPlayed;
+	songDuration = BarPlayer2GetDuration(app->player);
+	songPlayed   = BarPlayer2GetTime(app->player);
+
+	if (songPlayed <= songDuration) {
+		songRemaining = songDuration - songPlayed;
 		sign = '-';
 	} else {
 		/* longer than expected */
-		songRemaining = app->player.songPlayed - app->player.songDuration;
+		songRemaining = songPlayed - songDuration;
 		sign = '+';
 	}
 	BarUiMsg (&app->settings, MSG_TIME, "%c%02u:%02u/%02u:%02u\r",
-			sign, songRemaining / 60, songRemaining % 60,
-			app->player.songDuration / 60,
-			app->player.songDuration % 60);
+			sign, (int)songRemaining / 60, (int)songRemaining % 60,
+				  (int)songDuration / 60, (int)songDuration  % 60);
 }
 
 /*	main loop
  */
 static void BarMainLoop (BarApp_t *app) {
-	pthread_t playerThread;
-
-	if (!BarMainGetLoginCredentials (&app->settings, &app->input)) {
+	if (!BarMainGetLoginCredentials (&app->settings, app->rl)) {
 		return;
 	}
 
@@ -342,19 +298,15 @@ static void BarMainLoop (BarApp_t *app) {
 
 	BarMainGetInitialStation (app);
 
-	/* little hack, needed to signal: hey! we need a playlist, but don't
-	 * free anything (there is nothing to be freed yet) */
-	memset (&app->player, 0, sizeof (app->player));
-
 	while (!app->doQuit) {
 		/* song finished playing, clean up things/scrobble song */
-		if (app->player.mode == PLAYER_FINISHED) {
-			BarMainPlayerCleanup (app, &playerThread);
+		if (BarPlayer2IsStopped(app->player)) {
+			BarMainPlayerCleanup (app);
 		}
 
 		/* check whether player finished playing and start playing new
 		 * song */
-		if (app->player.mode == PLAYER_DEAD && app->curStation != NULL) {
+		if (BarPlayer2IsFinished(app->player) && app->curStation != NULL) {
 			/* what's next? */
 			if (app->playlist != NULL) {
 				PianoSong_t *histsong = app->playlist;
@@ -367,20 +319,16 @@ static void BarMainLoop (BarApp_t *app) {
 			}
 			/* song ready to play */
 			if (app->playlist != NULL) {
-				BarMainStartPlayback (app, &playerThread);
+				BarMainStartPlayback (app);
 			}
 		}
 
 		BarMainHandleUserInput (app);
 
 		/* show time */
-		if (app->player.mode == PLAYER_PLAYING) {
+		if (BarPlayer2IsPlaying(app->player) || BarPlayer2IsPaused(app->player)) {
 			BarMainPrintTime (app);
 		}
-	}
-
-	if (app->player.mode != PLAYER_DEAD) {
-		pthread_join (playerThread, NULL);
 	}
 }
 
@@ -389,17 +337,10 @@ int main (int argc, char **argv) {
 
 	memset (&app, 0, sizeof (app));
 
-	/* save terminal attributes, before disabling echoing */
-	BarTermInit ();
-
-	/* signals */
-	signal (SIGPIPE, SIG_IGN);
+	BarConsoleInit ();
 
 	/* init some things */
-	gcry_check_version (NULL);
-	gcry_control (GCRYCTL_DISABLE_SECMEM, 0);
-	gcry_control (GCRYCTL_INITIALIZATION_FINISHED, 0);
-	BarPlayerInit ();
+	BarPlayer2Init (&app.player);
 
 	BarSettingsInit (&app.settings);
 	BarSettingsRead (&app.settings);
@@ -414,7 +355,7 @@ int main (int argc, char **argv) {
 	}
 
 	BarUiMsg (&app.settings, MSG_NONE,
-			"Welcome to " PACKAGE " (" VERSION ")! ");
+			"Welcome to " PACKAGE " (" VERSION ")!\n");
 	if (app.settings.keys[BAR_KS_HELP] == BAR_KS_DISABLED) {
 		BarUiMsg (&app.settings, MSG_NONE, "\n");
 	} else {
@@ -427,38 +368,11 @@ int main (int argc, char **argv) {
 	app.http = curl_easy_init ();
 	assert (app.http != NULL);
 
-	/* init fds */
-	FD_ZERO(&app.input.set);
-	app.input.fds[0] = STDIN_FILENO;
-	FD_SET(app.input.fds[0], &app.input.set);
-
-	/* open fifo read/write so it won't EOF if nobody writes to it */
-	assert (sizeof (app.input.fds) / sizeof (*app.input.fds) >= 2);
-	app.input.fds[1] = open (app.settings.fifo, O_RDWR);
-	if (app.input.fds[1] != -1) {
-		struct stat s;
-
-		/* check for file type, must be fifo */
-		fstat (app.input.fds[1], &s);
-		if (!S_ISFIFO (s.st_mode)) {
-			BarUiMsg (&app.settings, MSG_ERR, "File at %s is not a fifo\n", app.settings.fifo);
-			close (app.input.fds[1]);
-			app.input.fds[1] = -1;
-		} else {
-			FD_SET(app.input.fds[1], &app.input.set);
-			BarUiMsg (&app.settings, MSG_INFO, "Control fifo at %s opened\n",
-					app.settings.fifo);
-		}
-	}
-	app.input.maxfd = app.input.fds[0] > app.input.fds[1] ? app.input.fds[0] :
-			app.input.fds[1];
-	++app.input.maxfd;
+	BarReadlineInit (&app.rl);
 
 	BarMainLoop (&app);
 
-	if (app.input.fds[1] != -1) {
-		close (app.input.fds[1]);
-	}
+	BarReadlineDestroy (app.rl);
 
 	/* write statefile */
 	BarSettingsWrite (app.curStation, &app.settings);
@@ -468,11 +382,9 @@ int main (int argc, char **argv) {
 	PianoDestroyPlaylist (app.playlist);
 	curl_easy_cleanup (app.http);
 	curl_global_cleanup ();
-	BarPlayerDestroy ();
+	BarPlayer2Destroy (app.player);
 	BarSettingsDestroy (&app.settings);
-
-	/* restore terminal attributes, zsh doesn't need this, bash does... */
-	BarTermRestore ();
+	BarConsoleDestroy ();
 
 	return 0;
 }

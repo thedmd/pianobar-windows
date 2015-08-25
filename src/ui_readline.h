@@ -24,8 +24,10 @@ THE SOFTWARE.
 #ifndef SRC_UI_READLINE_H_IFRX74VM
 #define SRC_UI_READLINE_H_IFRX74VM
 
+#include "config.h"
+
 #include <stdbool.h>
-#include <sys/select.h>
+#include <stdlib.h>
 
 typedef enum {
 	BAR_RL_DEFAULT = 0,
@@ -33,18 +35,16 @@ typedef enum {
 	BAR_RL_NOECHO = 2, /* don't echo to stdout */
 } BarReadlineFlags_t;
 
-typedef struct {
-	fd_set set;
-	int maxfd;
-	int fds[2];
-} BarReadlineFds_t;
+typedef struct _BarReadline_t *BarReadline_t;
 
+void BarReadlineInit(BarReadline_t*);
+void BarReadlineDestroy(BarReadline_t);
 size_t BarReadline (char *, const size_t, const char *,
-		BarReadlineFds_t *, const BarReadlineFlags_t, int);
+		BarReadline_t, const BarReadlineFlags_t, int);
 size_t BarReadlineStr (char *, const size_t,
-		BarReadlineFds_t *, const BarReadlineFlags_t);
-size_t BarReadlineInt (int *, BarReadlineFds_t *);
-bool BarReadlineYesNo (bool, BarReadlineFds_t *);
+		BarReadline_t, const BarReadlineFlags_t);
+size_t BarReadlineInt (int *, BarReadline_t);
+bool BarReadlineYesNo (bool, BarReadline_t);
 
 #endif /* SRC_UI_READLINE_H_IFRX74VM */
 
