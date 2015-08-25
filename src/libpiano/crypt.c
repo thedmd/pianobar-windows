@@ -29,17 +29,50 @@ THE SOFTWARE.
 
 #include "crypt.h"
 
+#include <blowfish.h>
+
+struct _PianoCipher_t {
+	BLOWFISH_CTX cipher;
+};
+
+PianoReturn_t PianoCryptInit (PianoCipher_t* h, const char * const key,
+		size_t const size) {
+	PianoCipher_t result = malloc (sizeof(BLOWFISH_CTX));
+	if (result == NULL) {
+		return PIANO_RET_OUT_OF_MEMORY;
+	}
+
+	Blowfish_Init (&result->cipher, (unsigned char*)key, size);
+
+	*h = result;
+
+	return PIANO_RET_OK;
+}
+
+void PianoCryptDestroy (PianoCipher_t h) {
+	free(h);
+}
+
+static inline bool PianoCryptDecrypt (PianoCipher_t h, unsigned char* output, size_t size) {
+	return Blowfish_DecryptData (&h->cipher, (uint32_t*)output, (uint32_t*)output, size) == BLOWFISH_OK;
+}
+
+static inline bool PianoCryptEncrypt (PianoCipher_t h, unsigned char* output, size_t size)
+{
+	return Blowfish_EncryptData (&h->cipher, (uint32_t*)output, (uint32_t*)output, size) == BLOWFISH_OK;
+}
+
 /*	decrypt hex-encoded, blowfish-crypted string: decode 2 hex-encoded blocks,
  *	decrypt, byteswap
- *	@param gcrypt handle
+ *	@param cipher handle
  *	@param hex string
  *	@param decrypted string length (without trailing NUL)
  *	@return decrypted string or NULL
  */
-char *PianoDecryptString (gcry_cipher_hd_t h, const char * const input,
+char *PianoDecryptString (PianoCipher_t h, const char * const input,
 		size_t * const retSize) {
 	size_t inputLen = strlen (input);
-	gcry_error_t gret;
+	bool ret;
 	unsigned char *output;
 	size_t outputLen = inputLen/2;
 
@@ -51,11 +84,11 @@ char *PianoDecryptString (gcry_cipher_hd_t h, const char * const input,
 		char hex[3];
 		memcpy (hex, &input[i*2], 2);
 		hex[2] = '\0';
-		output[i] = strtol (hex, NULL, 16);
+		output[i] = (unsigned char) strtol (hex, NULL, 16);
 	}
 
-	gret = gcry_cipher_decrypt (h, output, outputLen, NULL, 0);
-	if (gret) {
+	ret = PianoCryptDecrypt (h, output, outputLen);
+	if (!ret) {
 		free (output);
 		return NULL;
 	}
@@ -66,22 +99,22 @@ char *PianoDecryptString (gcry_cipher_hd_t h, const char * const input,
 }
 
 /*	blowfish-encrypt/hex-encode string
- *	@param gcrypt handle
+ *	@param cipher handle
  *	@param encrypt this
  *	@return encrypted, hex-encoded string
  */
-char *PianoEncryptString (gcry_cipher_hd_t h, const char *s) {
+char *PianoEncryptString (PianoCipher_t h, const char *s) {
 	unsigned char *paddedInput, *hexOutput;
 	size_t inputLen = strlen (s);
 	/* blowfish expects two 32 bit blocks */
 	size_t paddedInputLen = (inputLen % 8 == 0) ? inputLen : inputLen + (8-inputLen%8);
-	gcry_error_t gret;
+	bool ret;
 
 	paddedInput = calloc (paddedInputLen+1, sizeof (*paddedInput));
 	memcpy (paddedInput, s, inputLen);
 
-	gret = gcry_cipher_encrypt (h, paddedInput, paddedInputLen, NULL, 0);
-	if (gret) {
+	ret = PianoCryptEncrypt (h, paddedInput, paddedInputLen);
+	if (!ret) {
 		free (paddedInput);
 		return NULL;
 	}

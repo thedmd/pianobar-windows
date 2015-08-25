@@ -23,7 +23,7 @@ THE SOFTWARE.
 
 #include "../config.h"
 
-#include <json.h>
+#include <json/json.h>
 #include <string.h>
 #include <assert.h>
 #include <time.h>
@@ -273,7 +273,7 @@ PianoReturn_t PianoResponse (PianoHandle_t *ph, PianoRequest_t *req) {
 				song->stationId = PianoJsonStrdup (s, "stationId");
 				song->coverArt = PianoJsonStrdup (s, "albumArtUrl");
 				song->detailUrl = PianoJsonStrdup (s, "songDetailUrl");
-				song->fileGain = json_object_get_double (
+				song->fileGain = (float)json_object_get_double (
 						json_object_object_get (s, "trackGain"));
 				song->length = json_object_get_int (
 						json_object_object_get (s, "trackLength"));

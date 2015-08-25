@@ -26,11 +26,8 @@ THE SOFTWARE.
 
 #include "../config.h"
 
+#include <stdlib.h>
 #include <stdbool.h>
-#ifdef __FreeBSD__
-#define _GCRYPT_IN_LIBGCRYPT
-#endif
-#include <gcrypt.h>
 
 /* this is our public API; don't expect this api to be stable as long as
  * pandora does not provide a stable api
@@ -43,6 +40,8 @@ THE SOFTWARE.
 
 #define PIANO_RPC_HOST "tuner.pandora.com"
 #define PIANO_RPC_PATH "/services/json/?"
+
+typedef struct _PianoCipher_t* PianoCipher_t;
 
 typedef struct PianoListHead {
 	struct PianoListHead *next;
@@ -124,7 +123,7 @@ typedef struct PianoGenreCategory {
 } PianoGenreCategory_t;
 
 typedef struct PianoPartner {
-	gcry_cipher_hd_t in, out;
+	PianoCipher_t in, out;
 	char *authToken, *device, *user, *password;
 	unsigned int id;
 } PianoPartner_t;
@@ -276,7 +275,7 @@ typedef enum {
 	PIANO_RET_OUT_OF_MEMORY = 4,
 	PIANO_RET_INVALID_LOGIN = 5,
 	PIANO_RET_QUALITY_UNAVAILABLE = 6,
-	PIANO_RET_GCRY_ERR = 7,
+	PIANO_RET_CIPHER_ERR = 7,
 
 	/* pandora error codes */
 	PIANO_RET_P_INTERNAL = PIANO_RET_OFFSET+0,

@@ -31,6 +31,7 @@ THE SOFTWARE.
 
 #include "piano_private.h"
 #include "piano.h"
+#include "crypt.h"
 
 /*	initialize piano handle
  *	@param piano handle
@@ -39,30 +40,24 @@ THE SOFTWARE.
 PianoReturn_t PianoInit (PianoHandle_t *ph, const char *partnerUser,
 		const char *partnerPassword, const char *device, const char *inkey,
 		const char *outkey) {
+	PianoReturn_t ret = PIANO_RET_OK;
+
 	memset (ph, 0, sizeof (*ph));
 	ph->partner.user = strdup (partnerUser);
 	ph->partner.password = strdup (partnerPassword);
 	ph->partner.device = strdup (device);
 
-	if (gcry_cipher_open (&ph->partner.in, GCRY_CIPHER_BLOWFISH,
-			GCRY_CIPHER_MODE_ECB, 0) != GPG_ERR_NO_ERROR) {
-		return PIANO_RET_GCRY_ERR;
-	}
-	if (gcry_cipher_setkey (ph->partner.in, (const unsigned char *) inkey,
-			strlen (inkey)) != GPG_ERR_NO_ERROR) {
-		return PIANO_RET_GCRY_ERR;
+	ret = PianoCryptInit (&ph->partner.in, inkey, strlen (inkey));
+	if (ret != PIANO_RET_OK) {
+		return ret;
 	}
 
-	if (gcry_cipher_open (&ph->partner.out, GCRY_CIPHER_BLOWFISH,
-			GCRY_CIPHER_MODE_ECB, 0) != GPG_ERR_NO_ERROR) {
-		return PIANO_RET_GCRY_ERR;
-	}
-	if (gcry_cipher_setkey (ph->partner.out, (const unsigned char *) outkey,
-			strlen (outkey)) != GPG_ERR_NO_ERROR) {
-		return PIANO_RET_GCRY_ERR;
+	ret = PianoCryptInit (&ph->partner.out, outkey, strlen(outkey));
+	if (ret != PIANO_RET_OK) {
+		return ret;
 	}
 
-	return PIANO_RET_OK;
+	return ret;
 }
 
 /*	destroy artist linked list
@@ -178,8 +173,8 @@ static void PianoDestroyPartner (PianoPartner_t *partner) {
 	free (partner->password);
 	free (partner->device);
 	free (partner->authToken);
-	gcry_cipher_close (partner->in);
-	gcry_cipher_close (partner->out);
+	PianoCryptDestroy (partner->in);
+	PianoCryptDestroy (partner->out);
 	memset (partner, 0, sizeof (*partner));
 }
 
@@ -267,8 +262,8 @@ const char *PianoErrorToStr (PianoReturn_t ret) {
 			return "Selected audio quality is not available.";
 			break;
 
-		case PIANO_RET_GCRY_ERR:
-			return "libgcrypt initialization failed.";
+		case PIANO_RET_CIPHER_ERR:
+			return "Cipher initialization failed.";
 			break;
 
 		/* pandora error messages */

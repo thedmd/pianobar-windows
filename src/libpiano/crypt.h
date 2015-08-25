@@ -24,13 +24,14 @@ THE SOFTWARE.
 #ifndef SRC_LIBPIANO_CRYPT_H_O832IVGK
 #define SRC_LIBPIANO_CRYPT_H_O832IVGK
 
-#ifdef __FreeBSD__
-#define _GCRYPT_IN_LIBGCRYPT
-#endif
-#include <gcrypt.h>
+#include "piano.h"
 
-char *PianoDecryptString (gcry_cipher_hd_t, const char * const,
+PianoReturn_t PianoCryptInit (PianoCipher_t*, const char * const,
+		size_t const);
+void PianoCryptDestroy (PianoCipher_t);
+
+char *PianoDecryptString (PianoCipher_t, const char * const,
 		size_t * const);
-char *PianoEncryptString (gcry_cipher_hd_t, const char *);
+char *PianoEncryptString (PianoCipher_t, const char *);
 
 #endif /* SRC_LIBPIANO_CRYPT_H_O832IVGK */

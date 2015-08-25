@@ -24,7 +24,7 @@ THE SOFTWARE.
 #include "../config.h"
 
 #include <curl/curl.h>
-#include <json.h>
+#include <json/json.h>
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -94,7 +94,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 					json_object_object_add (j, "partnerAuthToken",
 							json_object_new_string (ph->partner.authToken));
 					json_object_object_add (j, "syncTime",
-							json_object_new_int (timestamp));
+							json_object_new_int64 (timestamp));
 
 					CURL * const curl = curl_easy_init ();
 					urlencAuthToken = curl_easy_escape (curl,
@@ -487,7 +487,7 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 		json_object_object_add (j, "userAuthToken",
 				json_object_new_string (ph->user.authToken));
 		json_object_object_add (j, "syncTime",
-				json_object_new_int (timestamp));
+				json_object_new_int64 (timestamp));
 	}
 
 	/* json to string */
