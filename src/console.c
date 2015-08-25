@@ -26,7 +26,7 @@ THE SOFTWARE.
 #include <stdbool.h>
 #include <fcntl.h>
 #include <io.h>
-#include <pthread.h>
+#include <process.h>
 #include "vtparse/vtparse.h"
 
 enum { READ = 0, WRITE };
@@ -50,8 +50,7 @@ static struct BarConsoleState {
 	WORD DefaultAttributes;
 	WORD CurrentAttributes;
 
-	pthread_t ConsoleThread;
-	bool Spawned;
+	HANDLE ConsoleThread;
 	bool Terminate;
 
 	vtparse_t Parser;
@@ -144,7 +143,7 @@ static void BarParseCallback(struct vtparse* parser, vtparse_action_t action, un
 	}
 }
 
-static void* BarConsoleThread(void* args) {
+static unsigned __stdcall BarConsoleThread(void* args) {
 
 	while (!g_BarConsole.Terminate) {
 
@@ -156,10 +155,11 @@ static void* BarConsoleThread(void* args) {
 		BarOutFlush();
 	}
 
-	return NULL;
+	return 0;
 }
 
 void BarConsoleInit() {
+	unsigned threadId = 0;
 	CONSOLE_SCREEN_BUFFER_INFO csbi;
 	memset(&g_BarConsole, 0, sizeof(g_BarConsole));
 
@@ -184,8 +184,8 @@ void BarConsoleInit() {
 		dup2(g_BarConsole.Pipes[WRITE], fileno(stdout));
 		dup2(g_BarConsole.Pipes[WRITE], fileno(stderr));
 
-		g_BarConsole.Spawned = pthread_create(&g_BarConsole.ConsoleThread, NULL, BarConsoleThread, NULL) == 0;
-		if (!g_BarConsole.Spawned)
+		g_BarConsole.ConsoleThread = (HANDLE)_beginthreadex(NULL, 0, BarConsoleThread, NULL, 0, &threadId);
+		if (!g_BarConsole.ConsoleThread)
 			BarConsoleDestroy();
 	}
 
@@ -193,7 +193,7 @@ void BarConsoleInit() {
 }
 
 void BarConsoleDestroy() {
-	if (g_BarConsole.Spawned) {
+	if (g_BarConsole.ConsoleThread) {
 		g_BarConsole.Terminate = true;
 		fputs(" ", stderr);
 		fputs(" ", stdout);
@@ -201,7 +201,7 @@ void BarConsoleDestroy() {
 		fflush(stdout);
 		fflush(stderr);
 
-		pthread_join(g_BarConsole.ConsoleThread, NULL);
+		WaitForSingleObject(g_BarConsole.ConsoleThread, INFINITE);
 	}
 
 	if (g_BarConsole.OriginalStdErr > 0) {
