@@ -49,9 +49,9 @@ void BarUiPrintSong (const BarSettings_t *, const PianoSong_t *,
 size_t BarUiListSongs (const BarSettings_t *, const PianoSong_t *, const char *);
 void BarUiStartEventCmd (const BarSettings_t *, const char *,
 		const PianoStation_t *, const PianoSong_t *, const player2_t * const,
-		PianoStation_t *, PianoReturn_t, CURLcode);
+		PianoStation_t *, PianoReturn_t);
 int BarUiPianoCall (BarApp_t * const, PianoRequestType_t,
-		void *, PianoReturn_t *, CURLcode *);
+		void *, PianoReturn_t *);
 void BarUiHistoryPrepend (BarApp_t *app, PianoSong_t *song);
 
 #endif /* SRC_UI_H_46P20TS0 */

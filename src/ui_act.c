@@ -37,12 +37,12 @@ THE SOFTWARE.
  */
 #define BarUiActDefaultEventcmd(name) BarUiStartEventCmd (&app->settings, \
 		name, selStation, selSong, &app->player, app->ph.stations, \
-		pRet, wRet)
+		pRet)
 
 /*	standard piano call
  */
 #define BarUiActDefaultPianoCall(call, arg) BarUiPianoCall (app, \
-		call, arg, &pRet, &wRet)
+		call, arg, &pRet)
 
 /*	helper to _really_ skip a song (unlock mutex, quit player)
  *	@param player handle
@@ -60,7 +60,6 @@ static inline void BarUiDoSkipSong (player2_t player) {
  */
 static int BarTransformIfShared (BarApp_t *app, PianoStation_t *station) {
 	PianoReturn_t pRet;
-	CURLcode wRet;
 
 	assert (station != NULL);
 
@@ -68,7 +67,7 @@ static int BarTransformIfShared (BarApp_t *app, PianoStation_t *station) {
 	if (!station->isCreator) {
 		BarUiMsg (&app->settings, MSG_INFO, "Transforming station... ");
 		if (!BarUiPianoCall (app, PIANO_REQUEST_TRANSFORM_STATION, station,
-				&pRet, &wRet)) {
+				&pRet)) {
 			return 0;
 		}
 	}
@@ -93,7 +92,6 @@ BarUiActCallback(BarUiActHelp) {
  */
 BarUiActCallback(BarUiActAddMusic) {
 	PianoReturn_t pRet;
-	CURLcode wRet;
 	PianoRequestDataAddSeed_t reqData;
 
 	assert (selStation != NULL);
@@ -119,7 +117,6 @@ BarUiActCallback(BarUiActAddMusic) {
  */
 BarUiActCallback(BarUiActBanSong) {
 	PianoReturn_t pRet;
-	CURLcode wRet;
 	PianoStation_t *realStation;
 
 	assert (selStation != NULL);
@@ -151,7 +148,6 @@ BarUiActCallback(BarUiActBanSong) {
  */
 BarUiActCallback(BarUiActCreateStation) {
 	PianoReturn_t pRet;
-	CURLcode wRet;
 	PianoRequestDataCreateStation_t reqData;
 
 	reqData.type = PIANO_MUSICTYPE_INVALID;
@@ -169,7 +165,6 @@ BarUiActCallback(BarUiActCreateStation) {
  */
 BarUiActCallback(BarUiActCreateStationFromSong) {
 	PianoReturn_t pRet;
-	CURLcode wRet;
 	PianoRequestDataCreateStation_t reqData;
 	char selectBuf[2];
 
@@ -199,7 +194,6 @@ BarUiActCallback(BarUiActCreateStationFromSong) {
  */
 BarUiActCallback(BarUiActAddSharedStation) {
 	PianoReturn_t pRet;
-	CURLcode wRet;
 	char stationId[50];
 	PianoRequestDataCreateStation_t reqData;
 
@@ -219,7 +213,6 @@ BarUiActCallback(BarUiActAddSharedStation) {
  */
 BarUiActCallback(BarUiActDeleteStation) {
 	PianoReturn_t pRet;
-	CURLcode wRet;
 
 	assert (selStation != NULL);
 
@@ -244,7 +237,6 @@ BarUiActCallback(BarUiActDeleteStation) {
  */
 BarUiActCallback(BarUiActExplain) {
 	PianoReturn_t pRet;
-	CURLcode wRet;
 	PianoRequestDataExplain_t reqData;
 
 	assert (selSong != NULL);
@@ -263,7 +255,6 @@ BarUiActCallback(BarUiActExplain) {
  */
 BarUiActCallback(BarUiActStationFromGenre) {
 	PianoReturn_t pRet;
-	CURLcode wRet;
 	const PianoGenreCategory_t *curCat;
 	const PianoGenre_t *curGenre;
 	int i;
@@ -373,7 +364,6 @@ BarUiActCallback(BarUiActDebug) {
  */
 BarUiActCallback(BarUiActLoveSong) {
 	PianoReturn_t pRet;
-	CURLcode wRet;
 	PianoStation_t *realStation;
 
 	assert (selStation != NULL);
@@ -429,7 +419,6 @@ BarUiActCallback(BarUiActTogglePause) {
  */
 BarUiActCallback(BarUiActRenameStation) {
 	PianoReturn_t pRet;
-	CURLcode wRet;
 	char lineBuf[100];
 
 	assert (selStation != NULL);
@@ -472,7 +461,6 @@ BarUiActCallback(BarUiActSelectStation) {
  */
 BarUiActCallback(BarUiActTempBanSong) {
 	PianoReturn_t pRet;
-	CURLcode wRet;
 
 	assert (selSong != NULL);
 
@@ -538,7 +526,6 @@ static void BarUiActQuickmixCallback (BarApp_t *app, char *buf) {
  */
 BarUiActCallback(BarUiActSelectQuickMix) {
 	PianoReturn_t pRet;
-	CURLcode wRet;
 
 	assert (selStation != NULL);
 
@@ -607,7 +594,6 @@ BarUiActCallback(BarUiActHistory) {
  */
 BarUiActCallback(BarUiActBookmark) {
 	PianoReturn_t pRet;
-	CURLcode wRet;
 	char selectBuf[2];
 
 	assert (selSong != NULL);
@@ -655,7 +641,6 @@ static const char *boolToYesNo (const bool value) {
  */
 BarUiActCallback(BarUiActSettings) {
 	PianoReturn_t pRet;
-	CURLcode wRet;
 	PianoSettings_t settings;
 	PianoRequestDataChangeSettings_t reqData;
 	bool modified = false;
@@ -751,7 +736,6 @@ BarUiActCallback(BarUiActSettings) {
  */
 BarUiActCallback(BarUiActManageStation) {
 	PianoReturn_t pRet;
-	CURLcode wRet;
 	PianoRequestDataGetStationInfo_t reqData;
 	char selectBuf[2], allowedActions[6], *allowedPos = allowedActions;
 	char question[64];

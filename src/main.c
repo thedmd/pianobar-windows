@@ -36,7 +36,6 @@ THE SOFTWARE.
  */
 static bool BarMainLoginUser (BarApp_t *app) {
 	PianoReturn_t pRet;
-	CURLcode wRet;
 	PianoRequestDataLogin_t reqData;
 	bool ret;
 
@@ -45,9 +44,9 @@ static bool BarMainLoginUser (BarApp_t *app) {
 	reqData.step = 0;
 
 	BarUiMsg (&app->settings, MSG_INFO, "Login... ");
-	ret = BarUiPianoCall (app, PIANO_REQUEST_LOGIN, &reqData, &pRet, &wRet);
+	ret = BarUiPianoCall (app, PIANO_REQUEST_LOGIN, &reqData, &pRet);
 	BarUiStartEventCmd (&app->settings, "userlogin", NULL, NULL, &app->player,
-			NULL, pRet, wRet);
+			NULL, pRet);
 
 	return ret;
 }
@@ -139,13 +138,12 @@ static bool BarMainGetLoginCredentials (BarSettings_t *settings,
  */
 static bool BarMainGetStations (BarApp_t *app) {
 	PianoReturn_t pRet;
-	CURLcode wRet;
 	bool ret;
 
 	BarUiMsg (&app->settings, MSG_INFO, "Get stations... ");
-	ret = BarUiPianoCall (app, PIANO_REQUEST_GET_STATIONS, NULL, &pRet, &wRet);
+	ret = BarUiPianoCall (app, PIANO_REQUEST_GET_STATIONS, NULL, &pRet);
 	BarUiStartEventCmd (&app->settings, "usergetstations", NULL, NULL, &app->player,
-			app->ph.stations, pRet, wRet);
+			app->ph.stations, pRet);
 	return ret;
 }
 
@@ -186,14 +184,13 @@ static void BarMainHandleUserInput (BarApp_t *app) {
  */
 static void BarMainGetPlaylist (BarApp_t *app) {
 	PianoReturn_t pRet;
-	CURLcode wRet;
 	PianoRequestDataGetPlaylist_t reqData;
 	reqData.station = app->curStation;
 	reqData.quality = app->settings.audioQuality;
 
 	BarUiMsg (&app->settings, MSG_INFO, "Receiving new playlist... ");
 	if (!BarUiPianoCall (app, PIANO_REQUEST_GET_PLAYLIST,
-			&reqData, &pRet, &wRet)) {
+			&reqData, &pRet)) {
 		app->curStation = NULL;
 	} else {
 		app->playlist = reqData.retPlaylist;
@@ -204,7 +201,7 @@ static void BarMainGetPlaylist (BarApp_t *app) {
 	}
 	BarUiStartEventCmd (&app->settings, "stationfetchplaylist",
 			app->curStation, app->playlist, &app->player, app->ph.stations,
-			pRet, wRet);
+			pRet);
 }
 
 /*	start new player thread
@@ -225,16 +222,18 @@ static void BarMainStartPlayback (BarApp_t *app) {
 			strncmp (curSong->audioUrl, httpPrefix, strlen (httpPrefix)) != 0) {
 		BarUiMsg (&app->settings, MSG_ERR, "Invalid song url.\n");
 	} else {
-        BarPlayer2Finish(app->player);
 		BarPlayer2SetGain(app->player, curSong->fileGain);
 		BarPlayer2Open(app->player, curSong->audioUrl);
 
 		/* throw event */
 		BarUiStartEventCmd (&app->settings, "songstart",
 				app->curStation, curSong, &app->player, app->ph.stations,
-				PIANO_RET_OK, CURLE_OK);
+				PIANO_RET_OK);
 
-		BarPlayer2Play(app->player);
+		if (!BarPlayer2Play(app->player))
+			++app->playerErrors;
+		else
+			app->playerErrors = 0;
 	}
 }
 
@@ -242,24 +241,17 @@ static void BarMainStartPlayback (BarApp_t *app) {
  */
 static void BarMainPlayerCleanup (BarApp_t *app) {
 	BarUiStartEventCmd (&app->settings, "songfinish", app->curStation,
-			app->playlist, &app->player, app->ph.stations, PIANO_RET_OK,
-			CURLE_OK);
+			app->playlist, &app->player, app->ph.stations, PIANO_RET_OK);
 
 	BarPlayer2Finish(app->player);
 
 	BarConsoleSetTitle (TITLE);
 
-	//if (threadRet == (void *) PLAYER_RET_OK) {
-	//	app->playerErrors = 0;
-	//} else if (threadRet == (void *) PLAYER_RET_SOFTFAIL) {
-	//	++app->playerErrors;
-	//	if (app->playerErrors >= app->settings.maxPlayerErrors) {
-	//		/* don't continue playback if thread reports too many error */
-	//		app->curStation = NULL;
-	//	}
-	//} else {
-	//	app->curStation = NULL;
-	//}
+	if (app->playerErrors >= app->settings.maxPlayerErrors) {
+		/* don't continue playback if thread reports too many error */
+		app->curStation = NULL;
+		app->playerErrors = 0;
+	}
 }
 
 /*	print song duration
@@ -369,9 +361,10 @@ int main (int argc, char **argv) {
 				app.settings.keys[BAR_KS_HELP]);
 	}
 
-	curl_global_init (CURL_GLOBAL_DEFAULT);
-	app.http = curl_easy_init ();
-	assert (app.http != NULL);
+	HttpInit(&app.http2, app.settings.rpcHost, app.settings.rpcTlsPort);
+	if (app.settings.controlProxy)
+		HttpSetProxy(app.http2, app.settings.controlProxy);
+
 
 	BarReadlineInit (&app.rl);
 
@@ -385,8 +378,7 @@ int main (int argc, char **argv) {
 	PianoDestroy (&app.ph);
 	PianoDestroyPlaylist (app.songHistory);
 	PianoDestroyPlaylist (app.playlist);
-	curl_easy_cleanup (app.http);
-	curl_global_cleanup ();
+	HttpDestroy (app.http2);
 	BarPlayer2Destroy (app.player);
 	BarSettingsDestroy (&app.settings);
 	BarConsoleDestroy ();
