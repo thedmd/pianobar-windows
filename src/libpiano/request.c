@@ -23,14 +23,57 @@ THE SOFTWARE.
 
 #include "../config.h"
 
-#include <curl/curl.h>
 #include <json/json.h>
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include "piano.h"
 #include "crypt.h"
+
+static char* PianoEncodeAuthToken(const char* token)
+{
+	/* Pandora expects '+' and '=' to be escaped. */
+	const char* allowed = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-~._";
+	const char* hex     = "0123456789ABCDEF";
+
+	size_t i, tokenSize, resultSize, resultCapacity;
+	char* result;
+
+	tokenSize      = strlen(token);
+	resultSize     = 0;
+	resultCapacity = tokenSize * 3 / 2;
+	result         = malloc(resultCapacity);
+	for (i = 0; i < tokenSize; ++i) {
+		char cp = token[i];
+		
+		int c = (strchr(allowed, cp) != NULL) ? 1 : 3;
+
+		if (resultSize + c >= resultCapacity) {
+			resultCapacity = resultCapacity * 3 / 2;
+			result = realloc(result, resultCapacity);
+		}
+
+		if (c == 1) {
+			result[resultSize++] = cp;
+		}
+		else {
+			result[resultSize++] = '%';
+			result[resultSize++] = hex[(cp >> 4) & 0x0F];
+			result[resultSize++] = hex[(cp >> 0) & 0x0F];
+		}
+	}
+
+	if (resultSize + 1 >= resultCapacity) {
+		resultCapacity = resultSize + 1;
+		result = realloc(result, resultCapacity);
+	}
+
+	result[resultSize] = 0;
+
+	return result;
+}
 
 /*	prepare piano request (initializes request type, urlpath and postData)
  *	@param piano handle
@@ -96,16 +139,13 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 					json_object_object_add (j, "syncTime",
 							json_object_new_int64 (timestamp));
 
-					CURL * const curl = curl_easy_init ();
-					urlencAuthToken = curl_easy_escape (curl,
-							ph->partner.authToken, 0);
+					urlencAuthToken = PianoEncodeAuthToken (ph->partner.authToken);
 					assert (urlencAuthToken != NULL);
 					snprintf (req->urlPath, sizeof (req->urlPath),
 							PIANO_RPC_PATH "method=auth.userLogin&"
 							"auth_token=%s&partner_id=%i", urlencAuthToken,
 							ph->partner.id);
-					curl_free (urlencAuthToken);
-					curl_easy_cleanup (curl);
+					free (urlencAuthToken);
 
 					break;
 				}
@@ -472,17 +512,14 @@ PianoReturn_t PianoRequest (PianoHandle_t *ph, PianoRequest_t *req,
 
 		assert (ph->user.authToken != NULL);
 
-		CURL * const curl = curl_easy_init ();
-		urlencAuthToken = curl_easy_escape (curl,
-				ph->user.authToken, 0);
+		urlencAuthToken = PianoEncodeAuthToken (ph->user.authToken);
 		assert (urlencAuthToken != NULL);
 
 		snprintf (req->urlPath, sizeof (req->urlPath), PIANO_RPC_PATH
 				"method=%s&auth_token=%s&partner_id=%i&user_id=%s", method,
 				urlencAuthToken, ph->partner.id, ph->user.listenerId);
 
-		curl_free (urlencAuthToken);
-		curl_easy_cleanup (curl);
+		free (urlencAuthToken);
 
 		json_object_object_add (j, "userAuthToken",
 				json_object_new_string (ph->user.authToken));
