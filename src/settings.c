@@ -30,6 +30,8 @@ THE SOFTWARE.
 #include "ui_dispatch.h"
 #include <stdlib.h>
 #include <assert.h>
+#include <memory.h>
+#include <string.h>
 
 #define PACKAGE_CONFIG	PACKAGE ".cfg"
 #define PACKAGE_STATE	PACKAGE ".state"

@@ -1,6 +1,6 @@
-/*
-Copyright (c) 2008-2011
-	Lars-Dominik Braun <lars@6xq.net>
+﻿/*
+Copyright (c) 2015
+	Michał Cichoń <thedmd@interia.pl>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -21,32 +21,26 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#ifndef SRC_MAIN_H_4ZGSCG6X
-#define SRC_MAIN_H_4ZGSCG6X
+#ifndef SRC_HTTP_H_CN979RE9
+#define SRC_HTTP_H_CN979RE9
 
-//#include <curl/curl.h>
+#include "config.h"
 
-#include <piano.h>
+#include <stdbool.h>
 
-#include "player2.h"
-#include "http.h"
+#include "piano.h"
 #include "settings.h"
-#include "ui_readline.h"
 
-typedef struct {
-	PianoHandle_t ph;
-	//CURL *http;
-	http_t http2;
-	player2_t player;
-	BarSettings_t settings;
-	/* first item is current song */
-	PianoSong_t *playlist;
-	PianoSong_t *songHistory;
-	PianoStation_t *curStation;
-	char doQuit;
-	BarReadline_t rl;
-	unsigned int playerErrors;
-} BarApp_t;
+typedef struct _http_t *http_t;
 
-#endif /* SRC_MAIN_H_4ZGSCG6X */
+bool HttpInit (http_t*, const char*, const char*);
+void HttpDestroy (http_t);
+
+bool HttpSetAutoProxy (http_t, const char*);
+bool HttpSetProxy(http_t, const char*);
+
+bool HttpRequest (http_t, PianoRequest_t * const);
+const char* HttpGetError (http_t);
+
+#endif /* SRC_HTTP_H_CN979RE9 */
 
