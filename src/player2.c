@@ -1,6 +1,6 @@
 /*
-Copyright (c) 2008-2014
-	Lars-Dominik Braun <lars@6xq.net>
+Copyright (c) 2015
+	Micha³ Cichoñ <thedmd@interia.pl>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -23,6 +23,8 @@ THE SOFTWARE.
 
 /* receive/play audio stream */
 
+/* based on DShow example player */
+
 #include "config.h"
 #include "player2.h"
 #define COBJMACROS
@@ -35,6 +37,12 @@ THE SOFTWARE.
 
 enum { NO_GRAPH, RUNNING, PAUSED, STOPPED };
 
+static struct _player_static_t {
+	bool				done;
+	bool				initialized;
+	bool				hasCOM;
+} BarPlayerGlobal = { 0 };
+
 struct _player_t {
 	int				state;
 	IGraphBuilder*	graph;
@@ -45,6 +53,40 @@ struct _player_t {
 	float			volume; // dB
 	float			gain;   // dB
 };
+
+static bool BarPlayer2StaticInit();
+static void BarPlayer2StaticTerm(void);
+
+static bool BarPlayer2StaticInit () {
+	if (BarPlayerGlobal.done)
+		return BarPlayerGlobal.initialized;
+
+	BarPlayerGlobal.done = true;
+
+	atexit(BarPlayer2StaticTerm);
+
+	if (FAILED(CoInitializeEx(NULL, COINIT_MULTITHREADED)))
+		return false;
+
+	BarPlayerGlobal.hasCOM = true;
+
+	BarPlayerGlobal.initialized = true;
+
+	return true;
+}
+
+static void BarPlayer2StaticTerm(void) {
+	if (!BarPlayerGlobal.done)
+		return;
+
+	if (BarPlayerGlobal.hasCOM) {
+		CoUninitialize();
+		BarPlayerGlobal.hasCOM = false;
+	}
+
+	BarPlayerGlobal.initialized = false;
+	BarPlayerGlobal.done = false;
+}
 
 static void BarPlayer2ApplyVolume(player2_t player) {
 	long v = (long)((player->volume + player->gain) * 100.0f);
@@ -196,7 +238,7 @@ done:
 
 bool BarPlayer2Init(player2_t* player) {
 
-	if (FAILED(CoInitializeEx(NULL, COINIT_MULTITHREADED)))
+	if (!BarPlayer2StaticInit ())
 		return false;
 
 	player2_t out = malloc(sizeof(struct _player_t));
@@ -353,8 +395,11 @@ bool BarPlayer2IsFinished(player2_t player) {
 	LONGLONG time;
 	LONGLONG duration;
 
-	if (!player->media)
+	if (!player->media || player->state == NO_GRAPH)
 		return true;
+
+	if (player->state != RUNNING && player->state != STOPPED)
+		return false;
 
 	if (FAILED(IMediaSeeking_GetDuration(player->media, &duration)) ||
 		FAILED(IMediaSeeking_GetCurrentPosition(player->media, &time)))

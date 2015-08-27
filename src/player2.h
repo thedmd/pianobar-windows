@@ -1,6 +1,6 @@
 /*
-Copyright (c) 2008-2014
-	Lars-Dominik Braun <lars@6xq.net>
+Copyright (c) 2015
+	Micha³ Cichoñ <thedmd@interia.pl>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
