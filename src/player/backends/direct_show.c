@@ -442,6 +442,7 @@ static bool DSPlayerIsFinished(player2_t player)
 
 player2_iface player2_direct_show =
 {
+    .Id             = "ds",
     .Name           = "Direct Show",
     .Create         = DSPlayerCreate,
     .Destroy        = DSPlayerDestroy,

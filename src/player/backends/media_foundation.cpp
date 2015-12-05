@@ -1088,6 +1088,7 @@ extern "C" bool WMFPlayerIsFinished(player2_t player)
 
 extern "C" player2_iface player2_windows_media_foundation =
 {
+    /*.Id             =*/ "mf",
     /*.Name           =*/ "Windows Media Foundation",
     /*.Create         =*/ WMFPlayerCreate,
     /*.Destroy        =*/ WMFPlayerDestroy,

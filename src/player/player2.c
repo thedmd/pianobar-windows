@@ -28,6 +28,7 @@ THE SOFTWARE.
 #include "config.h"
 #include "player2_private.h"
 #include <stdlib.h>
+#include <string.h>
 #include <memory.h>
 
 # define length_of(x)   (sizeof(x)/sizeof(*(x)))
@@ -44,7 +45,7 @@ struct _player_t
     player2_t       player;
 };
 
-bool BarPlayer2Init(player2_t* outPlayer)
+bool BarPlayer2Init(player2_t* outPlayer, const char* defaultPlayer)
 {
     player2_t player;
     struct _player_t result;
@@ -56,7 +57,13 @@ bool BarPlayer2Init(player2_t* outPlayer)
     {
         player2_iface* backend = player2_backends[i];
 
-        result.player = backend->Create();
+        bool acceptPlayer = true;
+        if (defaultPlayer && !(strcmp(backend->Id, defaultPlayer) == 0))
+            acceptPlayer = false;
+
+        if (acceptPlayer)
+            result.player = backend->Create();
+
         if (result.player)
         {
             result.backend = backend;

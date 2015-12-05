@@ -31,7 +31,7 @@ THE SOFTWARE.
 
 typedef struct _player_t *player2_t;
 
-bool BarPlayer2Init(player2_t* outPlayer);
+bool BarPlayer2Init(player2_t* outPlayer, const char* defaultPlayer);
 void BarPlayer2Destroy(player2_t player);
 void BarPlayer2SetVolume(player2_t player, float volume);
 float BarPlayer2GetVolume(player2_t player);

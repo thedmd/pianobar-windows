@@ -337,10 +337,17 @@ int main (int argc, char **argv) {
 	BarConsoleSetTitle (TITLE);
 
 	/* init some things */
-	BarPlayer2Init (&app.player);
-
 	BarSettingsInit (&app.settings);
 	BarSettingsRead (&app.settings);
+
+	if (!BarPlayer2Init (&app.player, app.settings.player))
+    {
+        if (app.settings.player)
+            BarUiMsg(&app.settings, MSG_ERR, "Player \"%s\" initialization failed.", app.settings.player);
+        else
+            BarUiMsg(&app.settings, MSG_ERR, "Player initialization failed.");
+        return 0;
+    }
 
 	PianoReturn_t pret;
 	if ((pret = PianoInit (&app.ph, app.settings.partnerUser,

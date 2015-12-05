@@ -8,6 +8,7 @@
 
 typedef struct _player2_iface
 {
+    const char*     Id;
     const char*     Name;
     player2_t     (*Create)        ();
     void          (*Destroy)       (player2_t player);
