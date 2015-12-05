@@ -36,9 +36,108 @@ extern "C" {
 # include <cassert>
 # include <cmath>
 
-# pragma comment(lib, "mf.lib")
-# pragma comment(lib, "mfplat.lib")
+//# pragma comment(lib, "mf.lib")
+//# pragma comment(lib, "mfplat.lib")
 # pragma comment(lib, "mfuuid.lib")
+
+// MFPlat.dll
+typedef HRESULT (__stdcall *MFSTARTUPPROC)(ULONG Version, DWORD dwFlags/* = MFSTARTUP_FULL*/);
+typedef HRESULT (__stdcall *MFSHUTDOWNPROC)();
+typedef HRESULT (__stdcall *MFCREATESOURCERESOLVERPROC)(IMFSourceResolver** ppISourceResolver);
+
+// MF.dll
+typedef HRESULT (__stdcall *MFGETSERVICEPROC)(IUnknown* punkObject, REFGUID guidService, REFIID riid, LPVOID* ppvObject);
+typedef HRESULT (__stdcall *MFCREATETOPOLOGYPROC)(IMFTopology** ppTopo);
+typedef HRESULT (__stdcall *MFCREATETOPOLOGYNODEPROC)(MF_TOPOLOGY_TYPE NodeType, IMFTopologyNode** ppNode);
+typedef HRESULT (__stdcall *MFCREATEAUDIORENDERERACTIVATEPROC)(IMFActivate** ppActivate);
+typedef HRESULT (__stdcall *MFCREATEMEDIASESSIONPROC)(IMFAttributes* pConfiguration, IMFMediaSession** ppMediaSession);
+
+struct MF
+{
+    bool                                Loaded;
+    bool                                Tried;
+    HMODULE                             MFModule;
+    HMODULE                             MFPlatModule;
+
+    // MFPlat.dll
+    MFSTARTUPPROC                       MFStartup;
+    MFSHUTDOWNPROC                      MFShutdown;
+    MFCREATESOURCERESOLVERPROC          MFCreateSourceResolver;
+
+    // MF.dll
+    MFGETSERVICEPROC                    MFGetService;
+    MFCREATETOPOLOGYPROC                MFCreateTopology;
+    MFCREATETOPOLOGYNODEPROC            MFCreateTopologyNode;
+    MFCREATEAUDIORENDERERACTIVATEPROC   MFCreateAudioRendererActivate;
+    MFCREATEMEDIASESSIONPROC            MFCreateMediaSession;
+};
+static_assert(std::is_pod<MF>::value, "");
+
+static MF g_MF = { 0 };
+
+static void MFUnload()
+{
+    if (!g_MF.Tried)
+        return;
+
+    if (g_MF.MFModule)
+    {
+        FreeLibrary(g_MF.MFModule);
+        g_MF.MFModule = nullptr;
+    }
+
+    if (g_MF.MFPlatModule)
+    {
+        FreeLibrary(g_MF.MFPlatModule);
+        g_MF.MFPlatModule = nullptr;
+    }
+
+    g_MF.Loaded = false;
+}
+
+static bool MFLoad()
+{
+    if (g_MF.Tried)
+        return g_MF.Loaded;
+
+    g_MF.Tried = true;
+
+    g_MF.MFPlatModule = LoadLibrary(L"MFPlat.dll");
+    g_MF.MFModule     = LoadLibrary(L"MF.dll");
+
+    if (!g_MF.MFPlatModule || !g_MF.MFModule)
+    {
+        MFUnload();
+        return false;
+    }
+
+    bool success = true;
+# define GET_PROC(module, type, name) success &= (g_MF.name = reinterpret_cast<type>(GetProcAddress(module, #name))) != nullptr
+
+    // MFPlat.dll
+    GET_PROC(g_MF.MFPlatModule, MFSTARTUPPROC,                      MFStartup);
+    GET_PROC(g_MF.MFPlatModule, MFSHUTDOWNPROC,                     MFShutdown);
+    GET_PROC(g_MF.MFPlatModule, MFCREATESOURCERESOLVERPROC,         MFCreateSourceResolver);
+
+    // MF.dll
+    GET_PROC(g_MF.MFModule,     MFGETSERVICEPROC,                   MFGetService);
+    GET_PROC(g_MF.MFModule,     MFCREATETOPOLOGYPROC,               MFCreateTopology);
+    GET_PROC(g_MF.MFModule,     MFCREATETOPOLOGYNODEPROC,           MFCreateTopologyNode);
+    GET_PROC(g_MF.MFModule,     MFCREATEAUDIORENDERERACTIVATEPROC,  MFCreateAudioRendererActivate);
+    GET_PROC(g_MF.MFModule,     MFCREATEMEDIASESSIONPROC,           MFCreateMediaSession);
+
+    if (!success)
+    {
+        MFUnload();
+        return false;
+    }
+
+    g_MF.Loaded = true;
+
+    atexit(MFUnload);
+
+    return true;
+}
 
 # define SAFE_CALL(expression) do { hr = expression; if (FAILED(hr)) return hr; } while (false)
 
@@ -183,7 +282,7 @@ HRESULT STDMETHODCALLTYPE MediaPlayer::QueryInterface(REFIID iid, void** object)
 
 HRESULT MediaPlayer::Initialize()
 {
-    auto hr = MFStartup(MF_VERSION);
+    auto hr = g_MF.MFStartup(MF_VERSION, MFSTARTUP_FULL);
     if (FAILED(hr))
         return hr;
 
@@ -201,7 +300,7 @@ HRESULT MediaPlayer::Shutdown()
 {
     auto hr = CloseSession();
 
-    MFShutdown();
+    g_MF.MFShutdown();
 
     if (m_CloseEvent)
     {
@@ -218,7 +317,7 @@ HRESULT MediaPlayer::CreateSession()
 
     SAFE_CALL(CloseSession());
     assert(m_State == Closed);
-    SAFE_CALL(MFCreateMediaSession(nullptr, &m_MediaSession));
+    SAFE_CALL(g_MF.MFCreateMediaSession(nullptr, &m_MediaSession));
     SAFE_CALL(m_MediaSession->BeginGetEvent(this, nullptr));
 
     return hr;
@@ -290,7 +389,7 @@ HRESULT MediaPlayer::OpenURL(const wchar_t* url)
 
         SAFE_CALL(CreateSession());
 
-        SAFE_CALL(MFCreateSourceResolver(&m_SourceResolver));
+        SAFE_CALL(g_MF.MFCreateSourceResolver(&m_SourceResolver));
 
         SAFE_CALL(m_SourceResolver->BeginCreateObjectFromURL(
             url,                        // URL of the source.
@@ -597,7 +696,7 @@ HRESULT MediaPlayer::OnStateChange(State state, State previousState)
         SAFE_CALL(m_MediaSession->GetClock(&clock));
         SAFE_CALL(clock->QueryInterface(&m_PresentationClock));
 
-        SAFE_CALL(MFGetService(m_MediaSession, MR_POLICY_VOLUME_SERVICE, IID_IMFSimpleAudioVolume, (void**)&m_SimpleAudioVolume));
+        SAFE_CALL(g_MF.MFGetService(m_MediaSession, MR_POLICY_VOLUME_SERVICE, IID_IMFSimpleAudioVolume, (void**)&m_SimpleAudioVolume));
 
         // Set master volume to previously set value
         if (m_SetMasterVolume)
@@ -606,7 +705,7 @@ HRESULT MediaPlayer::OnStateChange(State state, State previousState)
             m_SetMasterVolume = nullopt;
         }
 
-        MFGetService(m_MediaSession, MR_STREAM_VOLUME_SERVICE, IID_IMFAudioStreamVolume, (void**)&m_StreamAudioVolume);
+        g_MF.MFGetService(m_MediaSession, MR_STREAM_VOLUME_SERVICE, IID_IMFAudioStreamVolume, (void**)&m_StreamAudioVolume);
         ApplyReplayGain(m_ReplayGain);
     }
 
@@ -738,7 +837,7 @@ static HRESULT CreateMediaSinkActivate(IMFStreamDescriptor* streamDescriptor, IM
     if (MFMediaType_Audio == majorType)
     {
         // Create the audio renderer.
-        SAFE_CALL(MFCreateAudioRendererActivate(&activate));
+        SAFE_CALL(g_MF.MFCreateAudioRendererActivate(&activate));
     }
     else // Unknown stream type. 
     {
@@ -760,7 +859,7 @@ static HRESULT AddSourceNode(IMFTopology* topology, IMFMediaSource* mediaSource,
     com_ptr<IMFTopologyNode> node;
 
     // Create the node.
-    SAFE_CALL(MFCreateTopologyNode(MF_TOPOLOGY_SOURCESTREAM_NODE, &node));
+    SAFE_CALL(g_MF.MFCreateTopologyNode(MF_TOPOLOGY_SOURCESTREAM_NODE, &node));
     SAFE_CALL(node->SetUnknown(MF_TOPONODE_SOURCE, mediaSource));
     SAFE_CALL(node->SetUnknown(MF_TOPONODE_PRESENTATION_DESCRIPTOR, presentationDescriptor));
     SAFE_CALL(node->SetUnknown(MF_TOPONODE_STREAM_DESCRIPTOR, streamDescriptor));
@@ -778,7 +877,7 @@ static HRESULT AddOutputNode(IMFTopology* topology, IMFActivate* activate, DWORD
 
     com_ptr<IMFTopologyNode> node;
 
-    SAFE_CALL(MFCreateTopologyNode(MF_TOPOLOGY_OUTPUT_NODE, &node));
+    SAFE_CALL(g_MF.MFCreateTopologyNode(MF_TOPOLOGY_OUTPUT_NODE, &node));
     SAFE_CALL(node->SetObject(activate));
     SAFE_CALL(node->SetUINT32(MF_TOPONODE_STREAMID, streamSinkId));
     SAFE_CALL(node->SetUINT32(MF_TOPONODE_NOSHUTDOWN_ON_REMOVE, false));
@@ -829,7 +928,7 @@ static HRESULT CreatePlaybackTopology(IMFMediaSource* mediaSourcee, IMFPresentat
     com_ptr<IMFTopology> topology;
 
     // Create a new topology.
-    SAFE_CALL(MFCreateTopology(&topology));
+    SAFE_CALL(g_MF.MFCreateTopology(&topology));
 
     // Get the number of streams in the media source.
     DWORD streamDescriptorCount = 0;
@@ -853,6 +952,9 @@ struct _player_t
 
 extern "C" player2_t WMFPlayerCreate()
 {
+    if (!MFLoad())
+        return nullptr;
+
     com_ptr<MediaPlayer> player;
     auto hr = MediaPlayer::Create(nullptr, &player);
     if (FAILED(hr))
@@ -871,12 +973,16 @@ extern "C" void WMFPlayerDestroy(player2_t player)
 
 extern "C" void WMFPlayerSetVolume(player2_t player, float volume)
 {
-    player->player->SetMasterVolume(volume);
+    const float attenuation  = powf(10.0f, volume / 20.0f);
+    const float linearVolume = max(0.0f, min(1.0f, attenuation));
+    player->player->SetMasterVolume(linearVolume);
 }
 
 extern "C" float WMFPlayerGetVolume(player2_t player)
 {
-    return player->player->GetMasterVolume();
+    const float linearVolume = player->player->GetMasterVolume();
+    const float volume       = linearVolume > 0.0f ? 20.0f * log10f(linearVolume) : 0.0f;
+    return volume;
 }
 
 extern "C" void WMFPlayerSetGain(player2_t player, float gainDb)
@@ -958,7 +1064,7 @@ extern "C" bool WMFPlayerFinish(player2_t player)
 extern "C" bool WMFPlayerIsPlaying(player2_t player)
 {
     auto state = player->player->GetState();
-    return state == MediaPlayer::OpenPending || state == MediaPlayer::Started;
+    return state == MediaPlayer::Started;
 }
 
 extern "C" bool WMFPlayerIsPaused(player2_t player)
