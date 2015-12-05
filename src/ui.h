@@ -29,7 +29,7 @@ THE SOFTWARE.
 #include <piano.h>
 
 #include "settings.h"
-#include "player2.h"
+#include "player/player2.h"
 #include "main.h"
 #include "ui_readline.h"
 #include "ui_types.h"

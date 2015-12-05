@@ -28,8 +28,8 @@ THE SOFTWARE.
 
 #include <piano.h>
 
-#include "player2.h"
-#include "http.h"
+#include "player/player2.h"
+#include "http/http.h"
 #include "settings.h"
 #include "ui_readline.h"
 
