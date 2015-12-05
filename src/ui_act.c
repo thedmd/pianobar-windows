@@ -410,9 +410,9 @@ BarUiActCallback(BarUiActPause) {
  */
 BarUiActCallback(BarUiActTogglePause) {
 	if (BarPlayer2IsPlaying(app->player))
-		BarPlayer2Play(app->player);
-	else
 		BarPlayer2Pause(app->player);
+	else
+		BarPlayer2Play(app->player);
 }
 
 /*	rename current station
