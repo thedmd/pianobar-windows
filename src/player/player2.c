@@ -34,8 +34,8 @@ THE SOFTWARE.
 
 static player2_iface* player2_backends[] =
 {
-    &player2_windows_media_foundation,
-    &player2_direct_show
+    &player2_windows_media_foundation, // expermiental
+    &player2_direct_show,
 };
 
 struct _player_t
