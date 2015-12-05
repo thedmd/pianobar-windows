@@ -1,6 +1,6 @@
 /*
 Copyright (c) 2015
-	Micha³ Cichoñ <thedmd@interia.pl>
+    Micha³ Cichoñ <thedmd@interia.pl>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -26,384 +26,178 @@ THE SOFTWARE.
 /* based on DShow example player */
 
 #include "config.h"
-#include "player2.h"
-#define COBJMACROS
-#define INITGUID
-#include <objbase.h>
-#include <dshow.h>
-#pragma comment(lib, "strmiids.lib")
+#include "player2_private.h"
+#include <stdlib.h>
+#include <memory.h>
 
-# define WM_GRAPH_EVENT		(WM_APP + 1)
+# define length_of(x)   (sizeof(x)/sizeof(*(x)))
 
-enum { NO_GRAPH, RUNNING, PAUSED, STOPPED };
-
-static struct _player_static_t {
-	bool				done;
-	bool				initialized;
-	bool				hasCOM;
-} BarPlayerGlobal = { 0 };
-
-struct _player_t {
-	int				state;
-	IGraphBuilder*	graph;
-	IMediaControl*	control;
-	IMediaEventEx*	event;
-	IBasicAudio*	audio;
-	IMediaSeeking*  media;
-	float			volume; // dB
-	float			gain;   // dB
+static player2_iface* player2_backends[] =
+{
+    &player2_direct_show
 };
 
-static bool BarPlayer2StaticInit();
-static void BarPlayer2StaticTerm(void);
+struct _player_t
+{
+    player2_iface*  backend;
+    player2_t       player;
+};
 
-static bool BarPlayer2StaticInit () {
-	if (BarPlayerGlobal.done)
-		return BarPlayerGlobal.initialized;
+bool BarPlayer2Init(player2_t* outPlayer)
+{
+    player2_t player;
+    struct _player_t result;
+    int i;
 
-	BarPlayerGlobal.done = true;
+    memset(&result, 0, sizeof(struct _player_t));
 
-	atexit(BarPlayer2StaticTerm);
+    for (i = 0; i < length_of(player2_backends); ++i)
+    {
+        player2_iface* backend = player2_backends[i];
 
-	if (FAILED(CoInitializeEx(NULL, COINIT_MULTITHREADED)))
-		return false;
+        result.player = backend->Create();
+        if (result.player)
+        {
+            result.backend = backend;
+            break;
+        }
+    }
 
-	BarPlayerGlobal.hasCOM = true;
+    if (!result.backend)
+        return false;
 
-	BarPlayerGlobal.initialized = true;
+    player = malloc(sizeof(struct _player_t));
+    if (!player)
+        return false;
 
-	return true;
+    *player = result;
+
+    *outPlayer = player;
+
+    return true;
 }
 
-static void BarPlayer2StaticTerm(void) {
-	if (!BarPlayerGlobal.done)
-		return;
-
-	if (BarPlayerGlobal.hasCOM) {
-		CoUninitialize();
-		BarPlayerGlobal.hasCOM = false;
-	}
-
-	BarPlayerGlobal.initialized = false;
-	BarPlayerGlobal.done = false;
+void BarPlayer2Destroy(player2_t player)
+{
+    if (player->player)
+    {
+        player->backend->Destroy(player->player);
+        player->player = NULL;
+    }
 }
 
-static void BarPlayer2ApplyVolume(player2_t player) {
-	long v = (long)((player->volume + player->gain) * 100.0f);
-
-	if (!player->audio)
-		return;
-
-	if (v < -10000)
-		v = -10000;
-	if (v > 0)
-		v = 0;
-
-	IBasicAudio_put_Volume(player->audio, v);
+void BarPlayer2SetVolume(player2_t player, float volume)
+{
+    if (player->player)
+        player->backend->SetVolume(player->player, volume);
 }
 
-static void BarPlayer2TearDown(player2_t player) {
-	/* TODO: send final event */
-
-	if (player->graph) {
-		IGraphBuilder_Release(player->graph);
-		player->graph = NULL;
-	}
-
-	if (player->control) {
-		IMediaControl_Release(player->control);
-		player->control = NULL;
-	}
-
-	if (player->event) {
-		IMediaEventEx_Release(player->event);
-		player->event = NULL;
-	}
-
-	if (player->audio) {
-		IBasicAudio_Release(player->audio);
-		player->audio = NULL;
-	}
-
-	if (player->media) {
-		IMediaSeeking_Release(player->media);
-		player->media = NULL;
-	}
-
-	player->state = NO_GRAPH;
+float BarPlayer2GetVolume(player2_t player)
+{
+    if (player->player)
+        return player->backend->GetVolume(player->player);
+    else
+        return 0.0f;
 }
 
-static HRESULT BarPlayer2Build(player2_t player) {
-	HRESULT hr;
-
-	BarPlayer2TearDown(player);
-
-	hr = CoCreateInstance(&CLSID_FilterGraph, NULL, CLSCTX_INPROC_SERVER, &IID_IGraphBuilder, &player->graph);
-	if (FAILED(hr))
-		return hr;
-
-	hr = IGraphBuilder_QueryInterface(player->graph, &IID_IMediaControl, &player->control);
-	if (FAILED(hr))
-		return hr;
-
-	hr = IGraphBuilder_QueryInterface(player->graph, &IID_IMediaEventEx, &player->event);
-	if (FAILED(hr))
-		return hr;
-
-	hr = IGraphBuilder_QueryInterface(player->graph, &IID_IBasicAudio, &player->audio);
-	if (FAILED(hr))
-		return hr;
-
-	hr = IGraphBuilder_QueryInterface(player->graph, &IID_IMediaSeeking, &player->media);
-	if (FAILED(hr))
-		return hr;
-
-	hr = IMediaEventEx_SetNotifyWindow(player->event, (OAHWND)NULL, WM_GRAPH_EVENT, (LONG_PTR)player);
-	if (FAILED(hr))
-		return hr;
-
-	player->state = STOPPED;
-
-	return S_OK;
+void BarPlayer2SetGain(player2_t player, float gainDb)
+{
+    if (player->player)
+        player->backend->SetGain(player->player, gainDb);
 }
 
-static HRESULT BarPlayer2AddFilterByCLSID(IGraphBuilder *pGraph, REFGUID clsid, IBaseFilter **ppF, LPCWSTR wszName) {
-	IBaseFilter *pFilter = NULL;
-	HRESULT hr;
-	*ppF = 0;
-
-	hr = CoCreateInstance(clsid, NULL, CLSCTX_INPROC_SERVER, &IID_IBaseFilter, &pFilter);
-	if (FAILED(hr))
-		goto done;
-
-	hr = IGraphBuilder_AddFilter(pGraph, pFilter, wszName);
-	if (FAILED(hr))
-		goto done;
-
-	*ppF = pFilter;
-
-	IBaseFilter_AddRef(*ppF);
-
-done:
-	if (pFilter)
-		IBaseFilter_Release(pFilter);
-
-	return hr;
+float BarPlayer2GetGain(player2_t player)
+{
+    if (player->player)
+        return player->backend->GetGain(player->player);
+    else
+        return 0.0f;
 }
 
-static HRESULT BarPlayer2Render(player2_t player, IBaseFilter* source) {
-	BOOL bRenderedAnyPin = FALSE;
-
-	IPin* pin = NULL;
-	IEnumPins *enumPins = NULL;
-	IBaseFilter *audioRenderer = NULL;
-	IFilterGraph2* filter = NULL;
-
-	HRESULT hr;
-
-	hr = IGraphBuilder_QueryInterface(player->graph, &IID_IFilterGraph2, &filter);
-	if (FAILED(hr))
-		return hr;
-
-	hr = BarPlayer2AddFilterByCLSID(player->graph, &CLSID_DSoundRender, &audioRenderer, L"Audio Renderer");
-	if (FAILED(hr))
-		goto done;
-
-	hr = IBaseFilter_EnumPins(source, &enumPins);
-	if (FAILED(hr))
-		goto done;
-
-	while (S_OK == IEnumPins_Next(enumPins, 1, &pin, NULL))
-	{
-		HRESULT hr2 = IFilterGraph2_RenderEx(filter, pin, AM_RENDEREX_RENDERTOEXISTINGRENDERERS, NULL);
-
-		IPin_Release(pin);
-		if (SUCCEEDED(hr2))
-			bRenderedAnyPin = TRUE;
-	}
-
-done:
-	if (enumPins)
-		IEnumPins_Release(enumPins);
-	if (enumPins)
-		IBaseFilter_Release(audioRenderer);
-	if (enumPins)
-		IFilterGraph2_Release(filter);
-
-	if (SUCCEEDED(hr) && !bRenderedAnyPin)
-		hr = VFW_E_CANNOT_RENDER;
-	
-	return hr;
+double BarPlayer2GetDuration(player2_t player)
+{
+    if (player->player)
+        return player->backend->GetDuration(player->player);
+    else
+        return 0.0f;
 }
 
-bool BarPlayer2Init(player2_t* player) {
-
-	if (!BarPlayer2StaticInit ())
-		return false;
-
-	player2_t out = malloc(sizeof(struct _player_t));
-	if (!out)
-		return false;
-
-	memset(out, 0, sizeof(struct _player_t));
-
-	*player = out;
-
-	return true;
+double BarPlayer2GetTime(player2_t player)
+{
+    if (player->player)
+        return player->backend->GetTime(player->player);
+    else
+        return 0.0f;
 }
 
-void BarPlayer2Destroy(player2_t player) {
-	BarPlayer2TearDown(player);
-	free(player);
+bool BarPlayer2Open(player2_t player, const char* url)
+{
+    if (player->player)
+        return player->backend->Open(player->player, url);
+    else
+        return false;
 }
 
-void BarPlayer2SetVolume(player2_t player, float volume) {
-	player->volume = volume;
-	BarPlayer2ApplyVolume(player);
+bool BarPlayer2Play(player2_t player)
+{
+    if (player->player)
+        return player->backend->Play(player->player);
+    else
+        return false;
 }
 
-float BarPlayer2GetVolume(player2_t player) {
-	return player->volume;
+bool BarPlayer2Pause(player2_t player)
+{
+    if (player->player)
+        return player->backend->Pause(player->player);
+    else
+        return false;
 }
 
-void BarPlayer2SetGain(player2_t player, float gain) {
-	player->gain = gain;
-	BarPlayer2ApplyVolume(player);
+bool BarPlayer2Stop(player2_t player)
+{
+    if (player->player)
+        return player->backend->Stop(player->player);
+    else
+        return false;
 }
 
-float BarPlayer2GetGain(player2_t player) {
-	return player->gain;
+bool BarPlayer2Finish(player2_t player)
+{
+    if (player->player)
+        return player->backend->Finish(player->player);
+    else
+        return false;
 }
 
-double BarPlayer2GetDuration(player2_t player) {
-	LONGLONG time;
-	if (SUCCEEDED(IMediaSeeking_GetDuration(player->media, &time)))
-		return time / 10000000.0;
-	else
-		return 0;
+bool BarPlayer2IsPlaying(player2_t player)
+{
+    if (player->player)
+        return player->backend->IsPlaying(player->player);
+    else
+        return false;
 }
 
-double BarPlayer2GetTime(player2_t player) {
-	LONGLONG time;
-	if (SUCCEEDED(IMediaSeeking_GetCurrentPosition(player->media, &time)))
-		return time / 10000000.0;
-	else
-		return 0;
+bool BarPlayer2IsPaused(player2_t player)
+{
+    if (player->player)
+        return player->backend->IsPaused(player->player);
+    else
+        return false;
 }
 
-bool BarPlayer2Open(player2_t player, const char* url) {
-	IBaseFilter* source = NULL;
-	HRESULT hr;
-	wchar_t* wideUrl = NULL;
-	size_t urlSize;
-	int result;
-
-	hr = BarPlayer2Build(player);
-	if (FAILED(hr))
-		goto done;
-
-	urlSize = strlen(url);
-	result = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, url, urlSize, NULL, 0);
-	wideUrl = malloc((result + 1) * sizeof(wchar_t));
-	if (!wideUrl) {
-		hr = E_OUTOFMEMORY;
-		goto done;
-	}
-	memset(wideUrl, 0, (result + 1) * sizeof(wchar_t));
-
-	MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, url, urlSize, wideUrl, result);
-
-	hr = IGraphBuilder_AddSourceFilter(player->graph, wideUrl, NULL, &source);
-	if (FAILED(hr))
-		goto done;
-
-	hr = BarPlayer2Render(player, source);
-
-	BarPlayer2ApplyVolume(player);
-
-done:
-	if (wideUrl)
-		free(wideUrl);
-	if (FAILED(hr))
-		BarPlayer2TearDown(player);
-	if (source)
-		IBaseFilter_Release(source);
-
-	return SUCCEEDED(hr);
+bool BarPlayer2IsStopped(player2_t player)
+{
+    if (player->player)
+        return player->backend->IsStopped(player->player);
+    else
+        return false;
 }
 
-bool BarPlayer2Play(player2_t player) {
-	HRESULT hr;
-
-	if (player->state != PAUSED && player->state != STOPPED)
-		return false; /* wrong state */
-
-	hr = IMediaControl_Run(player->control);
-	if (SUCCEEDED(hr))
-		player->state = RUNNING;
-
-	return SUCCEEDED(hr);
-}
-
-bool BarPlayer2Pause(player2_t player) {
-	HRESULT hr;
-
-	if (player->state != RUNNING)
-		return false; /* wrong state */
-
-	hr = IMediaControl_Pause(player->control);
-	if (SUCCEEDED(hr))
-		player->state = PAUSED;
-
-	return SUCCEEDED(hr);
-}
-
-bool BarPlayer2Stop(player2_t player) {
-	HRESULT hr;
-
-	if (player->state != RUNNING && player->state != PAUSED)
-		return false; /* wrong state */
-
-	hr = IMediaControl_Stop(player->control);
-	if (SUCCEEDED(hr))
-		player->state = STOPPED;
-
-	return SUCCEEDED(hr);
-}
-
-bool BarPlayer2Finish(player2_t player) {
-	if (!player->control)
-		return false;
-
-	BarPlayer2TearDown(player);
-	return true;
-}
-
-bool BarPlayer2IsPlaying(player2_t player) {
-	return player->state == RUNNING;
-}
-
-bool BarPlayer2IsPaused(player2_t player) {
-	return player->state == PAUSED;
-}
-
-bool BarPlayer2IsStopped(player2_t player) {
-	return player->state == STOPPED;
-}
-
-bool BarPlayer2IsFinished(player2_t player) {
-	LONGLONG time;
-	LONGLONG duration;
-
-	if (!player->media || player->state == NO_GRAPH)
-		return true;
-
-	if (player->state != RUNNING && player->state != STOPPED)
-		return false;
-
-	if (FAILED(IMediaSeeking_GetDuration(player->media, &duration)) ||
-		FAILED(IMediaSeeking_GetCurrentPosition(player->media, &time)))
-		return true;
-
-	return time >= duration;
+bool BarPlayer2IsFinished(player2_t player)
+{
+    if (player->player)
+        return player->backend->IsFinished(player->player);
+    else
+        return true;
 }
