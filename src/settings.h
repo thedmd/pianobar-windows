@@ -102,6 +102,7 @@ typedef struct {
 	char *npStationFormat;
 	char *listSongFormat;
 	char *titleFormat;
+	char *player;
 	char *fifo;
 	char *rpcHost, *rpcTlsPort, *partnerUser, *partnerPassword, *device, *inkey, *outkey, *caBundle;
 	char keys[BAR_KS_COUNT];
