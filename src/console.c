@@ -412,7 +412,7 @@ void BarConsolePrint(const char* format, ...)
 void BarConsolePrintV(const char* format, va_list args)
 {
     char localBuffer[BAR_BUFFER_CAPACITY];
-    size_t bufferSize = 0, i = 0;
+    size_t bufferSize = BAR_BUFFER_CAPACITY, i = 0;
 
     char* buffer = BarConsoleFormat(localBuffer, bufferSize, format, args);
 
