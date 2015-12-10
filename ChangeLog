@@ -1,3 +1,29 @@
+Release 2015.12.10
+- Fix: Fix I/O on Windows 8.x and Windows 10
+- Fix: Improve Windows Media Foundation backend
+
+Release 2015.12.05
+- New: Add Windows Media Foundation based player backend
+- New: Add new configuration option to force player backend
+    player = [ds|mf]
+
+Initial port
+- Replace libcurl with WinHTTP
+- Replace ffmpeg based player with Direct Show
+- Use vtparse to emulate terminal behavior
+- Use Paul Kocher blowfish implementation instead of gcrypt
+- This is second port, this time ability to build ported version back on unix was
+    dropped. There are no plans to make it mainline so there are also no reasons
+    spend time to do this
+- Original formatting was dropped, keeping it in day to day work is time consuming
+    and not rewarding at all. It will be harder to reintegrate changes
+    from upstream. However this is easier than to force myself to use rules which
+    are odd for me.
+
+
+
+Pre-port changelog:
+
 Release 2014.09.28
 - Fix segfault when retrieving station’s feedback list
 - Refactored audio player

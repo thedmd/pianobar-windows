@@ -1043,22 +1043,26 @@ extern "C" bool WMFPlayerOpen(player2_t player, const char* url)
 
 extern "C" bool WMFPlayerPlay(player2_t player)
 {
-    return SUCCEEDED(player->player->Play());
+    player->player->Play();
+    return true;
 }
 
 extern "C" bool WMFPlayerPause(player2_t player)
 {
-    return SUCCEEDED(player->player->Pause());
+    player->player->Pause();
+    return true;
 }
 
 extern "C" bool WMFPlayerStop(player2_t player)
 {
-    return SUCCEEDED(player->player->Stop());
+    player->player->Stop();
+    return true;
 }
 
 extern "C" bool WMFPlayerFinish(player2_t player)
 {
-    return SUCCEEDED(player->player->Stop());
+    player->player->Stop();
+    return true;
 }
 
 extern "C" bool WMFPlayerIsPlaying(player2_t player)

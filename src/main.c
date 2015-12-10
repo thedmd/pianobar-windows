@@ -77,7 +77,7 @@ static bool BarMainGetLoginCredentials (BarSettings_t *settings,
 			BarUiMsg (settings, MSG_QUESTION, "Password: ");
 			BarReadlineStr (passBuf, sizeof (passBuf), rl, BAR_RL_NOECHO);
 			/* write missing newline */
-			puts ("");
+            BarConsolePuts("");
 			settings->password = strdup (passBuf);
 		} else {
 			//pid_t chld;

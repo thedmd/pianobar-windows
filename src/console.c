@@ -1,6 +1,6 @@
 /*
 Copyright (c) 2015
-	Micha³ Cichoñ <thedmd@interia.pl>
+    Micha³ Cichoñ <thedmd@interia.pl>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -29,392 +29,395 @@ THE SOFTWARE.
 #include <process.h>
 #include "vtparse/vtparse.h"
 
-enum { READ = 0, WRITE };
-
-# define BAR_IN_CAPACITY		1024
-# define BAR_OUT_CAPACITY		1024
+# define BAR_BUFFER_CAPACITY    1024
 
 static const int BarTerminalToAttibColor[8] = {
-	0 /* black */,  4 /* red */,      2 /* green  */,   6 /* yellow */,
-	1 /* blue  */,  5 /* magenta */,  3 /* cyan */,     7 /* white */
+    0 /* black */,  4 /* red */,      2 /* green  */,   6 /* yellow */,
+    1 /* blue  */,  5 /* magenta */,  3 /* cyan */,     7 /* white */
 };
 
-static struct BarConsoleState {
-	HANDLE StdIn;
-	HANDLE StdOut;
+static struct BarConsoleState
+{
+    HANDLE StdIn;
+    HANDLE StdOut;
 
-	int Pipes[2];
-	int OriginalStdOut;
-	int OriginalStdErr;
+    WORD DefaultAttributes;
+    WORD CurrentAttributes;
 
-	WORD DefaultAttributes;
-	WORD CurrentAttributes;
+    HANDLE ConsoleThread;
+    bool Terminate;
 
-	HANDLE ConsoleThread;
-	bool Terminate;
+    vtparse_t Parser;
 
-	vtparse_t Parser;
-
-	char   InBuffer[BAR_IN_CAPACITY];
-	size_t InBufferSize;
-
-	char   OutBuffer[BAR_OUT_CAPACITY];
-	size_t OutBufferSize;
+    char   Buffer[BAR_BUFFER_CAPACITY];
+    size_t BufferSize;
 } g_BarConsole;
 
-static inline void BarOutSetAttributes(WORD attributes) {
-	g_BarConsole.CurrentAttributes = attributes;
-	SetConsoleTextAttribute(CONSOLE_REAL_OUTPUT_HANDLE, g_BarConsole.CurrentAttributes);
+static inline void BarOutSetAttributes(WORD attributes)
+{
+    g_BarConsole.CurrentAttributes = attributes;
+    SetConsoleTextAttribute(BarConsoleGetStdOut(), g_BarConsole.CurrentAttributes);
 }
 
-static inline void BarOutFlush() {
-	if (g_BarConsole.OutBufferSize == 0)
-		return;
+static void BarParseCallback(struct vtparse* parser, vtparse_action_t action, unsigned char ch)
+{
+    if (action == VTPARSE_ACTION_PRINT || action == VTPARSE_ACTION_EXECUTE)
+    {
+        putc(ch, stdout);
+        if (action == VTPARSE_ACTION_EXECUTE)
+            fflush(stdout);
+    }
 
-	_write(g_BarConsole.OriginalStdOut, g_BarConsole.OutBuffer, g_BarConsole.OutBufferSize);
+    if (action == VTPARSE_ACTION_CSI_DISPATCH)
+    {
+        WORD attribute = g_BarConsole.CurrentAttributes;
+        int i;
 
-	g_BarConsole.OutBufferSize = 0;
+        switch (ch)
+        {
+            case 'K':
+                BarConsoleEraseLine(parser->num_params > 0 ? parser->params[0] : 0);
+                break;
+
+            case 'm':
+                for (i = 0; i < parser->num_params; ++i)
+                {
+                    int p = parser->params[i];
+                    if (p == 0)
+                        attribute = g_BarConsole.DefaultAttributes;
+                    //else if (p == 1)
+                    //	attribute |= FOREGROUND_INTENSITY;
+                    else if (p == 4)
+                        attribute |= COMMON_LVB_UNDERSCORE;
+                    else if (p == 7)
+                        attribute |= COMMON_LVB_REVERSE_VIDEO;
+                    //else if (p == 21)
+                    //	attribute &= ~FOREGROUND_INTENSITY;
+                    else if (p == 24)
+                        attribute &= ~COMMON_LVB_UNDERSCORE;
+                    else if (p == 27)
+                        attribute &= ~COMMON_LVB_REVERSE_VIDEO;
+                    else if (p >= 30 && p <= 37)
+                        attribute = (attribute & ~0x07) | BarTerminalToAttibColor[p - 30];
+                    else if (p >= 40 && p <= 47)
+                        attribute = (attribute & ~0x70) | (BarTerminalToAttibColor[p - 40] << 4);
+                    else if (p >= 90 && p <= 97)
+                        attribute = (attribute & ~0x07) | BarTerminalToAttibColor[p - 90] | FOREGROUND_INTENSITY;
+                    else if (p >= 100 && p <= 107)
+                        attribute = ((attribute & ~0x70) | (BarTerminalToAttibColor[p - 100] << 4)) | BACKGROUND_INTENSITY;
+                }
+                fflush(stdout);
+                BarOutSetAttributes(attribute);
+                break;
+        }
+    }
 }
 
-static inline void BarOutPut(char c) {
-	if (g_BarConsole.OutBufferSize >= BAR_OUT_CAPACITY)
-		BarOutFlush();
+void BarConsoleInit()
+{
+    unsigned threadId = 0;
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    memset(&g_BarConsole, 0, sizeof(g_BarConsole));
 
-	g_BarConsole.OutBuffer[g_BarConsole.OutBufferSize++] = c;
+    SetConsoleCP(CP_UTF8);
+    SetConsoleOutputCP(CP_UTF8);
+
+    g_BarConsole.StdIn  = GetStdHandle(STD_INPUT_HANDLE);
+    g_BarConsole.StdOut = GetStdHandle(STD_OUTPUT_HANDLE);
+
+    GetConsoleScreenBufferInfo(g_BarConsole.StdOut, &csbi);
+
+    g_BarConsole.DefaultAttributes = csbi.wAttributes;
+    g_BarConsole.CurrentAttributes = csbi.wAttributes;
+
+    vtparse_init(&g_BarConsole.Parser, BarParseCallback);
 }
 
-static inline void BarOutPuts(const char* c) {
-	size_t length = strlen(c);
-	size_t i;
-
-	for (i = 0; i < length; ++i)
-		BarOutPut(c[i]);
+void BarConsoleDestroy()
+{
 }
 
-static void BarParseCallback(struct vtparse* parser, vtparse_action_t action, unsigned char ch) {
-	if (action == VTPARSE_ACTION_PRINT || action == VTPARSE_ACTION_EXECUTE)
-	{
-		BarOutPut(ch);
-		if (action == VTPARSE_ACTION_EXECUTE)
-			BarOutFlush();
-	}
-
-	if (action == VTPARSE_ACTION_CSI_DISPATCH)
-	{
-		WORD attribute = g_BarConsole.CurrentAttributes;
-		int i;
-
-		switch (ch)
-		{
-			case 'K':
-				BarConsoleEraseLine(parser->num_params > 0 ? parser->params[0] : 0);
-				break;
-
-			case 'm':
-				for (i = 0; i < parser->num_params; ++i) {
-					int p = parser->params[i];
-					if (p == 0)
-						attribute = g_BarConsole.DefaultAttributes;
-					//else if (p == 1)
-					//	attribute |= FOREGROUND_INTENSITY;
-					else if (p == 4)
-						attribute |= COMMON_LVB_UNDERSCORE;
-					else if (p == 7)
-						attribute |= COMMON_LVB_REVERSE_VIDEO;
-					//else if (p == 21)
-					//	attribute &= ~FOREGROUND_INTENSITY;
-					else if (p == 24)
-						attribute &= ~COMMON_LVB_UNDERSCORE;
-					else if (p == 27)
-						attribute &= ~COMMON_LVB_REVERSE_VIDEO;
-					else if (p >= 30 && p <= 37)
-						attribute = (attribute & ~0x07) | BarTerminalToAttibColor[p - 30];
-					else if (p >= 40 && p <= 47)
-						attribute = (attribute & ~0x70) | (BarTerminalToAttibColor[p - 40] << 4);
-					else if (p >= 90 && p <= 97)
-						attribute = (attribute & ~0x07) | BarTerminalToAttibColor[p - 90] | FOREGROUND_INTENSITY;
-					else if (p >= 100 && p <= 107)
-						attribute = ((attribute & ~0x70) | (BarTerminalToAttibColor[p - 100] << 4)) | BACKGROUND_INTENSITY;
-				}
-				BarOutFlush();
-				BarOutSetAttributes(attribute);
-				break;
-		}
-	}
+HANDLE BarConsoleGetStdIn()
+{
+    return g_BarConsole.StdIn;
 }
 
-static unsigned __stdcall BarConsoleThread(void* args) {
-
-	while (!g_BarConsole.Terminate) {
-
-		int bytes = _read(g_BarConsole.Pipes[READ], g_BarConsole.InBuffer, BAR_IN_CAPACITY);
-
-		if (bytes > 0)
-			vtparse(&g_BarConsole.Parser, g_BarConsole.InBuffer, bytes);
-
-		BarOutFlush();
-	}
-
-	return 0;
+HANDLE BarConsoleGetStdOut()
+{
+    return g_BarConsole.StdOut;
 }
 
-void BarConsoleInit() {
-	unsigned threadId = 0;
-	CONSOLE_SCREEN_BUFFER_INFO csbi;
-	memset(&g_BarConsole, 0, sizeof(g_BarConsole));
+void BarConsoleSetTitle(const char* title)
+{
+    size_t len = MultiByteToWideChar(CP_UTF8, 0, title, -1, NULL, 0);
 
-	SetConsoleCP(CP_UTF8);
-	SetConsoleOutputCP(CP_UTF8);
+    TCHAR* wTitle = malloc((len + 1) * sizeof(TCHAR));
+    if (NULL != wTitle)
+    {
+        MultiByteToWideChar(CP_UTF8, 0, title, -1, wTitle, len);
+        SetConsoleTitleW(wTitle);
 
-	g_BarConsole.StdIn = GetStdHandle(STD_INPUT_HANDLE);
-	g_BarConsole.StdOut = GetStdHandle(STD_OUTPUT_HANDLE);
-
-	GetConsoleScreenBufferInfo(g_BarConsole.StdOut, &csbi);
-
-	g_BarConsole.DefaultAttributes = csbi.wAttributes;
-	g_BarConsole.CurrentAttributes = csbi.wAttributes;
-
-	if (_pipe(g_BarConsole.Pipes, 65536, O_BINARY) != -1) {
-		g_BarConsole.OriginalStdOut = _dup(_fileno(stdout));
-		g_BarConsole.OriginalStdErr = _dup(_fileno(stderr));
-
-		fflush(stdout);
-		fflush(stderr);
-
-		dup2(g_BarConsole.Pipes[WRITE], fileno(stdout));
-		dup2(g_BarConsole.Pipes[WRITE], fileno(stderr));
-
-		g_BarConsole.ConsoleThread = (HANDLE)_beginthreadex(NULL, 0, BarConsoleThread, NULL, 0, &threadId);
-		if (!g_BarConsole.ConsoleThread)
-			BarConsoleDestroy();
-	}
-
-	vtparse_init(&g_BarConsole.Parser, BarParseCallback);
+        free(wTitle);
+    }
+    else
+        SetConsoleTitleA(title);
 }
 
-void BarConsoleDestroy() {
-	if (g_BarConsole.ConsoleThread) {
-		g_BarConsole.Terminate = true;
-		fputs(" ", stderr);
-		fputs(" ", stdout);
+void BarConsoleSetSize(int width, int height)
+{
+    HANDLE handle;
+    SMALL_RECT r;
+    COORD c, s;
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
 
-		fflush(stdout);
-		fflush(stderr);
+    handle = BarConsoleGetStdOut();
 
-		WaitForSingleObject(g_BarConsole.ConsoleThread, INFINITE);
-	}
+    if (!GetConsoleScreenBufferInfo(handle, &csbi))
+        return;
 
-	if (g_BarConsole.OriginalStdErr > 0) {
-		fflush(stderr);
-		dup2(g_BarConsole.OriginalStdErr, fileno(stderr));
-		_close(g_BarConsole.OriginalStdErr);
-		g_BarConsole.OriginalStdErr = 0;
-	}
-	if (g_BarConsole.OriginalStdOut > 0) {
-		fflush(stdout);
-		dup2(g_BarConsole.OriginalStdOut, fileno(stdout));
-		_close(g_BarConsole.OriginalStdOut);
-		g_BarConsole.OriginalStdOut = 0;
-	}
-	if (g_BarConsole.Pipes[0] > 0) {
-		_close(g_BarConsole.Pipes[0]);
-		g_BarConsole.Pipes[0] = 0;
-	}
-	if (g_BarConsole.Pipes[1] > 0) {
-		_close(g_BarConsole.Pipes[1]);
-		g_BarConsole.Pipes[1] = 0;
-	}
+    s.X = csbi.srWindow.Right - csbi.srWindow.Left + 1;
+    s.Y = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+
+    if (s.X > width && s.Y > height)
+        return;
+
+    c.X = width;
+    c.Y = height;
+
+    if (s.X > c.X)
+        c.X = s.X;
+    if (s.Y > c.Y)
+        c.Y = s.Y;
+
+    SetConsoleScreenBufferSize(handle, c);
+
+    r.Left = 0;
+    r.Top = 0;
+    r.Right = c.X - 1;
+    r.Bottom = c.Y - 1;
+    SetConsoleWindowInfo(handle, TRUE, &r);
 }
 
-HANDLE BarConsoleGetStdIn () {
-	return g_BarConsole.StdIn;
+void BarConsoleSetCursorPosition(COORD position)
+{
+    SetConsoleCursorPosition(BarConsoleGetStdOut(), position);
 }
 
-HANDLE BarConsoleGetStdOut () {
-	return GetStdHandle(STD_OUTPUT_HANDLE);//g_BarConsole.StdOut;
+COORD BarConsoleGetCursorPosition()
+{
+    CONSOLE_SCREEN_BUFFER_INFO consoleInfo;
+    COORD result = { -1, -1 };
+
+    if (GetConsoleScreenBufferInfo(BarConsoleGetStdOut(), &consoleInfo))
+        result = consoleInfo.dwCursorPosition;
+
+    return result;
 }
 
-void BarConsoleSetTitle (const char* title) {
-	size_t len = MultiByteToWideChar (CP_UTF8, 0, title, -1, NULL, 0);
+COORD BarConsoleMoveCursor(int xoffset)
+{
+    COORD position;
 
-	TCHAR* wTitle = malloc((len + 1) * sizeof(TCHAR));
-	if (NULL != wTitle)
-	{
-		MultiByteToWideChar (CP_UTF8, 0, title, -1, wTitle, len);
-		SetConsoleTitleW (wTitle);
+    position = BarConsoleGetCursorPosition();
+    position.X += xoffset;
+    BarConsoleSetCursorPosition(position);
 
-		free(wTitle);
-	}
-	else
-		SetConsoleTitleA (title);
+    return position;
 }
 
-void BarConsoleSetSize (int width, int height) {
-	HANDLE handle;
-	SMALL_RECT r;
-	COORD c, s;
-	CONSOLE_SCREEN_BUFFER_INFO csbi;
+void BarConsoleEraseCharacter()
+{
+    TCHAR buffer[256];
+    WORD buffer2[256];
+    CONSOLE_SCREEN_BUFFER_INFO csbiInfo;
+    COORD coords;
+    HANDLE handle = BarConsoleGetStdOut();
+    int length, read, write;
 
-	handle = CONSOLE_REAL_OUTPUT_HANDLE;
+    if (!GetConsoleScreenBufferInfo(handle, &csbiInfo))
+        return;
 
-	if (!GetConsoleScreenBufferInfo(handle, &csbi))
-		return;
+    length = csbiInfo.dwSize.X - csbiInfo.dwCursorPosition.X - 1;
+    read = csbiInfo.dwCursorPosition.X + 1;
+    write = csbiInfo.dwCursorPosition.X;
 
-	s.X = csbi.srWindow.Right  - csbi.srWindow.Left + 1;
-	s.Y = csbi.srWindow.Bottom - csbi.srWindow.Top  + 1;
+    while (length >= 0)
+    {
+        int size = min(length, 256);
+        DWORD chRead = 0, chWritten = 0;
+        coords = csbiInfo.dwCursorPosition;
+        coords.X = read;
+        ReadConsoleOutputAttribute(handle, buffer2, size, coords, &chRead);
+        ReadConsoleOutputCharacter(handle, buffer, size, coords, &chRead);
 
-	if (s.X > width && s.Y > height)
-		return;
+        if (chRead == 0)
+            break;
 
-	c.X = width;
-	c.Y = height;
+        coords.X = write;
+        WriteConsoleOutputAttribute(handle, buffer2, chRead, coords, &chWritten);
+        WriteConsoleOutputCharacter(handle, buffer, chRead, coords, &chWritten);
 
-	if (s.X > c.X)
-		c.X = s.X;
-	if (s.Y > c.Y)
-		c.Y = s.Y;
-
-	SetConsoleScreenBufferSize(handle, c);
-
-	r.Left = 0;
-	r.Top = 0;
-	r.Right = c.X - 1;
-	r.Bottom = c.Y - 1;
-	SetConsoleWindowInfo(handle, TRUE, &r);
+        read += chRead;
+        write += chRead;
+        length -= chRead;
+    }
 }
 
-void BarConsoleSetCursorPosition (COORD position) {
-	SetConsoleCursorPosition(CONSOLE_REAL_OUTPUT_HANDLE, position);
+void BarConsoleEraseLine(int mode)
+{
+    CONSOLE_SCREEN_BUFFER_INFO csbiInfo;
+    DWORD writen, length;
+    COORD coords;
+
+    HANDLE handle = BarConsoleGetStdOut();
+
+    if (!GetConsoleScreenBufferInfo(handle, &csbiInfo))
+        return;
+
+    writen = 0;
+    coords.X = 0;
+    coords.Y = csbiInfo.dwCursorPosition.Y;
+
+    switch (mode)
+    {
+        default:
+        case 0: /* from cursor */
+            coords.X = BarConsoleGetCursorPosition().X;
+            length = csbiInfo.dwSize.X - coords.X;
+            break;
+
+        case 1: /* to cursor */
+            coords.X = 0;
+            length = BarConsoleGetCursorPosition().X;
+            break;
+
+        case 2: /* whole line */
+            coords.X = 0;
+            length = csbiInfo.dwSize.X;
+            break;
+    }
+
+    FillConsoleOutputCharacter(handle, ' ', length, coords, &writen);
+    FillConsoleOutputAttribute(handle, csbiInfo.wAttributes, csbiInfo.dwSize.X, coords, &writen);
+
+    SetConsoleCursorPosition(handle, coords);
 }
 
-COORD BarConsoleGetCursorPosition () {
-	CONSOLE_SCREEN_BUFFER_INFO consoleInfo;
-	COORD result = { -1, -1 };
+void BarConsoleSetClipboard(const char* text)
+{
+    WCHAR* wideString;
+    HANDLE stringHandle;
+    size_t wideSize, wideBytes;
 
-	if (GetConsoleScreenBufferInfo(CONSOLE_REAL_OUTPUT_HANDLE, &consoleInfo))
-		result = consoleInfo.dwCursorPosition;
+    wideSize = MultiByteToWideChar(CP_UTF8, 0, text, -1, NULL, 0);
+    wideBytes = wideSize * sizeof(WCHAR);
+    wideString = malloc(wideBytes);
+    if (!wideString)
+        return;
 
-	return result;
+    MultiByteToWideChar(CP_UTF8, 0, text, -1, wideString, wideSize);
+
+    stringHandle = GlobalAlloc(GMEM_MOVEABLE, wideBytes);
+    if (!stringHandle)
+    {
+        free(wideString);
+        return;
+    }
+
+    memcpy(GlobalLock(stringHandle), wideString, wideBytes);
+
+    GlobalUnlock(stringHandle);
+
+    if (!OpenClipboard(NULL))
+    {
+        GlobalFree(stringHandle);
+        free(wideString);
+        return;
+    }
+
+    EmptyClipboard();
+
+    SetClipboardData(CF_UNICODETEXT, stringHandle);
+
+    CloseClipboard();
+
+    free(wideString);
 }
 
-COORD BarConsoleMoveCursor (int xoffset) {
-	COORD position;
+void BarConsoleFlush()
+{
+    char buffer[BAR_BUFFER_CAPACITY];
+    size_t bufferSize = 0;
 
-	position = BarConsoleGetCursorPosition();
-	position.X += xoffset;
-	BarConsoleSetCursorPosition(position);
+    if (g_BarConsole.BufferSize == 0)
+        return;
 
-	return position;
+    bufferSize = g_BarConsole.BufferSize;
+    memcpy(buffer, g_BarConsole.Buffer, bufferSize);
+
+    g_BarConsole.BufferSize = 0;
+
+    vtparse(&g_BarConsole.Parser, buffer, bufferSize);
 }
 
-void BarConsoleEraseCharacter () {
-	TCHAR buffer[256];
-	WORD buffer2[256];
-	CONSOLE_SCREEN_BUFFER_INFO csbiInfo;
-	COORD coords;
-	HANDLE handle = CONSOLE_REAL_OUTPUT_HANDLE;
-	int length, read, write;
+void BarConsolePutc(char c)
+{
+    if (g_BarConsole.BufferSize >= BAR_BUFFER_CAPACITY)
+        BarConsoleFlush();
 
-	if (!GetConsoleScreenBufferInfo(handle, &csbiInfo))
-		return;
-
-	length = csbiInfo.dwSize.X - csbiInfo.dwCursorPosition.X - 1;
-	read   = csbiInfo.dwCursorPosition.X + 1;
-	write  = csbiInfo.dwCursorPosition.X;
-
-	while (length >= 0) {
-		int size = min(length, 256);
-		DWORD chRead = 0, chWritten = 0;
-		coords = csbiInfo.dwCursorPosition;
-		coords.X = read;
-		ReadConsoleOutputAttribute(handle, buffer2, size, coords, &chRead);
-		ReadConsoleOutputCharacter(handle, buffer, size, coords, &chRead);
-
-		if (chRead == 0)
-			break;
-
-		coords.X = write;
-		WriteConsoleOutputAttribute(handle, buffer2, chRead, coords, &chWritten);
-		WriteConsoleOutputCharacter(handle, buffer, chRead, coords, &chWritten);
-
-		read += chRead;
-		write += chRead;
-		length -= chRead;
-	}
+    g_BarConsole.Buffer[g_BarConsole.BufferSize++] = c;
 }
 
-void BarConsoleEraseLine (int mode) {
-	CONSOLE_SCREEN_BUFFER_INFO csbiInfo;
-	DWORD writen, length;
-	COORD coords;
+void BarConsolePuts(const char* c)
+{
+    size_t length = strlen(c);
+    size_t i;
 
-	HANDLE handle = CONSOLE_REAL_OUTPUT_HANDLE;
-
-	if (!GetConsoleScreenBufferInfo(handle, &csbiInfo))
-		return;
-
-	writen = 0;
-	coords.X = 0;
-	coords.Y = csbiInfo.dwCursorPosition.Y;
-
-	switch (mode) {
-		default:
-		case 0: /* from cursor */
-			coords.X = BarConsoleGetCursorPosition().X;
-			length = csbiInfo.dwSize.X - coords.X;
-			break;
-
-		case 1: /* to cursor */
-			coords.X = 0;
-			length = BarConsoleGetCursorPosition().X;
-			break;
-
-		case 2: /* whole line */
-			coords.X = 0;
-			length = csbiInfo.dwSize.X;
-			break;
-	}
-
-	FillConsoleOutputCharacter(handle, ' ', length, coords, &writen);
-	FillConsoleOutputAttribute(handle, csbiInfo.wAttributes, csbiInfo.dwSize.X, coords, &writen);
-
-	SetConsoleCursorPosition(handle, coords);
+    for (i = 0; i < length; ++i)
+        BarConsolePutc(c[i]);
 }
 
-void BarConsoleSetClipboard(const char* text) {
-	WCHAR* wideString;
-	HANDLE stringHandle;
-	size_t wideSize, wideBytes;
+static char* BarConsoleFormat(char* buffer, size_t buffer_size, const char* format, va_list args)
+{
+    bool allocated = false;
 
-	wideSize = MultiByteToWideChar(CP_UTF8, 0, text, -1, NULL, 0);
-	wideBytes = wideSize * sizeof(WCHAR);
-	wideString = malloc(wideBytes);
-	if (!wideString)
-		return;
+    int chars_writen;
+    while ((chars_writen = _vsnprintf(buffer, buffer_size - 1, format, args)) < 0)
+    {
+        size_t new_buffer_size = buffer_size * 3 / 2;
+        if (new_buffer_size < buffer_size)
+        {   // handle overflow
+            chars_writen = buffer_size;
+            break;
+        }
 
-	MultiByteToWideChar(CP_UTF8, 0, text, -1, wideString, wideSize);
+        if (allocated)
+            buffer = realloc(buffer, new_buffer_size);
+        else
+            buffer = malloc(new_buffer_size);
+        buffer_size = new_buffer_size;
+    }
 
-	stringHandle = GlobalAlloc(GMEM_MOVEABLE, wideBytes);
-	if (!stringHandle) {
-		free(wideString);
-		return;
-	}
+    return buffer;
+}
 
-	memcpy(GlobalLock(stringHandle), wideString, wideBytes);
+void BarConsolePrint(const char* format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    BarConsolePrintV(format, args);
+    va_end(args);
+}
 
-	GlobalUnlock(stringHandle);
+void BarConsolePrintV(const char* format, va_list args)
+{
+    char localBuffer[BAR_BUFFER_CAPACITY];
+    size_t bufferSize = BAR_BUFFER_CAPACITY, i = 0;
 
-	if (!OpenClipboard(NULL)) {
-		GlobalFree(stringHandle);
-		free(wideString);
-		return;
-	}
+    char* buffer = BarConsoleFormat(localBuffer, bufferSize, format, args);
 
-	EmptyClipboard();
+    BarConsolePuts(buffer);
 
-	SetClipboardData(CF_UNICODETEXT, stringHandle);
-
-	CloseClipboard();
-
-	free(wideString);
+    if (buffer != localBuffer)
+        free(buffer);
 }
