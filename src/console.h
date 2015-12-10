@@ -25,7 +25,8 @@ THE SOFTWARE.
 #define SRC_CONSOLE_H_WY8F3MNH
 
 #include "config.h"
-
+#include <stdio.h>
+#include <stdarg.h>
 #include <windows.h>
 
 void BarConsoleInit ();
@@ -41,5 +42,11 @@ void BarConsoleEraseCharacter ();
 void BarConsoleEraseLine (int mode); // 0 - from cursor, 1 - to cursor, 2 - entire line
 
 void BarConsoleSetClipboard (const char*);
+
+void BarConsoleFlush();
+void BarConsolePutc(char c);
+void BarConsolePuts(const char* c);
+void BarConsolePrint(const char* format, ...);
+void BarConsolePrintV(const char* format, va_list args);
 
 #endif /* SRC_CONSOLE_H_WY8F3MNH */

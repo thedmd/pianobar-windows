@@ -241,7 +241,7 @@ size_t BarReadline (char *buf, const size_t bufSize, const char *mask,
 
 					case VK_RETURN:
 						if (echo)
-							fputc('\n', stdout);
+                            BarConsolePutc('\n');
 						return bufLen;
 
 					default: {
@@ -274,8 +274,8 @@ size_t BarReadline (char *buf, const size_t bufSize, const char *mask,
 								strncpy(bufOut, encodedCodePoint, encodedCodePointLength);
 
 								if (echo) {
-									fputs(encodedCodePoint, stdout);
-									fflush(stdout);
+                                    BarConsolePuts(encodedCodePoint);
+									BarConsoleFlush();
 								}
 
 								bufOut += encodedCodePointLength;
@@ -285,7 +285,7 @@ size_t BarReadline (char *buf, const size_t bufSize, const char *mask,
 								if ((bufLen >= (int)(bufSize - 1)) && overflow)
 								{
 									if (echo)
-										fputc('\n', stdout);
+                                        BarConsolePutc('\n');
 									return bufLen;
 								}
 							}
