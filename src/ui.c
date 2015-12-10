@@ -75,7 +75,7 @@ static const char *BarStrCaseStr (const char *haystack, const char *needle) {
 	return NULL;
 }
 
-char* BatStrFormat (const char* format, va_list args) {
+char* BarStrFormat (const char* format, va_list args) {
 	static const size_t c_initial_buffer_size = 256;
 
 	char* buffer = malloc(c_initial_buffer_size);
@@ -117,7 +117,7 @@ void BarUiMsg (const BarSettings_t *settings, const BarUiMsg_t type,
 		case MSG_DEBUG:
 			/* print ANSI clear line */
 
-			fputs ("\033[2K", stdout);
+            BarConsolePuts("\033[2K");
 			break;
 
 		default:
@@ -125,14 +125,14 @@ void BarUiMsg (const BarSettings_t *settings, const BarUiMsg_t type,
 	}
 
 	if (settings->msgFormat[type].prefix != NULL) {
-		fputs (settings->msgFormat[type].prefix, stdout);
+        BarConsolePuts(settings->msgFormat[type].prefix);
 	}
 
 	va_start (fmtargs, format);
-	vprintf (format, fmtargs);
+    BarConsolePrintV (format, fmtargs);
 
 	if (type == MSG_DEBUG) {
-		char* msg = BatStrFormat (format, fmtargs);
+		char* msg = BarStrFormat (format, fmtargs);
 		if (msg != NULL) {
 			BarConsoleSetClipboard (msg);
 			free (msg);
@@ -142,10 +142,10 @@ void BarUiMsg (const BarSettings_t *settings, const BarUiMsg_t type,
 	va_end (fmtargs);
 
 	if (settings->msgFormat[type].postfix != NULL) {
-		fputs (settings->msgFormat[type].postfix, stdout);
+        BarConsolePuts(settings->msgFormat[type].postfix);
 	}
 
-	fflush (stdout);
+	BarConsoleFlush();
 }
 
 /*	piano wrapper: prepare/execute http request and pass result back to

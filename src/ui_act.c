@@ -32,6 +32,7 @@ THE SOFTWARE.
 #include "ui.h"
 #include "ui_readline.h"
 #include "ui_dispatch.h"
+#include "console.h"
 
 /*	standard eventcmd call
  */
@@ -691,7 +692,7 @@ BarUiActCallback(BarUiActSettings) {
 					modified = true;
 				}
 				/* write missing newline */
-				puts ("");
+                BarConsolePuts("");
 				break;
 			}
 
