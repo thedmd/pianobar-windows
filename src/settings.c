@@ -180,7 +180,7 @@ void BarSettingsRead (BarSettings_t *settings) {
 	settings->titleFormat = strdup (TITLE " - \"%t\" by \"%a\" on \"%l\"%r%@%s");
 	settings->player = NULL;
 	settings->rpcHost = strdup (PIANO_RPC_HOST);
-	settings->rpcTlsPort = NULL;
+	settings->rpcTlsPort = strdup ("443");
 	settings->partnerUser = strdup ("android");
 	settings->partnerPassword = strdup ("AC7IBG09A3DTSYM4R41UJWL07VLN8JI7");
 	settings->device = strdup ("android-generic");
