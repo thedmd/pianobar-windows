@@ -307,6 +307,44 @@ static void BarMainPrintTime(BarApp_t *app)
         (int)songDuration / 60, (int)songDuration % 60);
 }
 
+static DWORD appTlsIndex = 0;
+
+LRESULT CALLBACK BarLowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
+    if (nCode == HC_ACTION && wParam == WM_KEYUP) {
+        PKBDLLHOOKSTRUCT p = (PKBDLLHOOKSTRUCT)lParam;
+        BarApp_t *app = TlsGetValue(appTlsIndex);
+
+        switch (p->vkCode) {
+        case VK_MEDIA_NEXT_TRACK:
+            BarPlayer2Stop(app->player);
+            return 1;
+        case VK_MEDIA_PLAY_PAUSE:
+            if (BarPlayer2IsPlaying(app->player))
+                BarPlayer2Pause(app->player);
+            else
+                BarPlayer2Play(app->player);
+            return 1;
+        }
+    }
+    return CallNextHookEx(NULL, nCode, wParam, lParam);
+}
+
+DWORD WINAPI BarLowLevelKeyboardThread(LPVOID lpParam) {
+    HHOOK hhkLowLevelKybd = SetWindowsHookEx(WH_KEYBOARD_LL, BarLowLevelKeyboardProc, 0, 0);
+
+    TlsSetValue(appTlsIndex, lpParam);
+
+    MSG msg;
+    while (!GetMessage(&msg, NULL, 0, 0)) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+    }
+
+    UnhookWindowsHookEx(hhkLowLevelKybd);
+
+    return 0;
+}
+
 /*	main loop
  */
 static void BarMainLoop(BarApp_t *app)
@@ -327,6 +365,13 @@ static void BarMainLoop(BarApp_t *app)
     }
 
     BarMainGetInitialStation(app);
+
+    /* Thread for media keys (play/pause, FF = next track) */
+    if (appTlsIndex == 0)
+        appTlsIndex = TlsAlloc();
+
+    if (appTlsIndex != TLS_OUT_OF_INDEXES)
+        CreateThread(NULL, 0, BarLowLevelKeyboardThread, app, 0, NULL);
 
     while (!app->doQuit)
     {
