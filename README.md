@@ -19,4 +19,6 @@ or [6xq.net](http://6xq.net/projects/pianobar/).
 
 ###Download/Installation
 
-There are community provided packages available for most Linux distributions (see your distribution’s package manager), Mac OS X ([MacPorts](http://trac.macports.org/browser/trunk/dports/audio/pianobar/Portfile) or [homebrew](http://brew.sh/)) and *BSD as well as a [native Windows port](https://github.com/thedmd/pianobar-windows).
+Download the [pianobar-windows-binaries git repository](https://github.com/thedmd/pianobar-windows-binaries).
+* If you want to save your username / password, rename pianobar.cfg.example to pianobar.cfg and enter your credentials.
+* If you move pianobar.exe make sure to move pianobar.cfg too.
