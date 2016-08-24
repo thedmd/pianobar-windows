@@ -14,8 +14,15 @@ pianobar is a console client for the personalized web radio [Pandora]
 
 ###Source Code
 
-The source code can be downloaded at [github.com](http://github.com/PromyLOPh/pianobar/)
+Original source code can be downloaded at [github.com](http://github.com/PromyLOPh/pianobar/)
 or [6xq.net](http://6xq.net/projects/pianobar/).
+
+Windows port source code is available at this repository ([pianobar-windows](https://github.com/thedmd/pianobar-windows)).
+
+###Building
+
+Checkout [pianobar-windows-build](https://github.com/thedmd/pianobar-windows-build) where
+you will find configured solution for Visual Studio 2015.
 
 ###Download/Installation
 
