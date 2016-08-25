@@ -12,6 +12,10 @@ pianobar is a console client for the personalized web radio [Pandora]
 * last.fm scrobbling support (external application)
 * Proxy support for listeners outside the USA.
 
+###Binary
+
+Prebuild binary is available at [pianobar-windows-binaries](https://github.com/thedmd/pianobar-windows-binaries) repository.
+
 ###Source Code
 
 Original source code can be downloaded at [github.com](http://github.com/PromyLOPh/pianobar/)
