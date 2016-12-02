@@ -64,7 +64,8 @@ static bool BarMainGetLoginCredentials(BarSettings_t *settings,
         char nameBuf[100];
 
         BarUiMsg(settings, MSG_QUESTION, "Email: ");
-        BarReadlineStr(nameBuf, sizeof(nameBuf), rl, BAR_RL_DEFAULT);
+        if (BarReadlineStr(nameBuf, sizeof(nameBuf), rl, BAR_RL_DEFAULT) == 0)
+            return false;
         settings->username = strdup(nameBuf);
         usernameFromConfig = false;
     }
@@ -78,18 +79,20 @@ static bool BarMainGetLoginCredentials(BarSettings_t *settings,
             BarUiMsg(settings, MSG_QUESTION, "Email: %s\n", settings->username);
         }
 
-        if (settings->passwordCmd == NULL)
-        {
-            BarUiMsg(settings, MSG_QUESTION, "Password: ");
-            BarReadlineStr(passBuf, sizeof(passBuf), rl, BAR_RL_NOECHO);
+		if (settings->passwordCmd == NULL) {
+			BarUiMsg (settings, MSG_QUESTION, "Password: ");
+			if (BarReadlineStr (passBuf, sizeof (passBuf), rl, BAR_RL_NOECHO) == 0) {
+                BarConsolePutc('\n');
+				return false;
+			}
             /* write missing newline */
             BarConsolePutc('\n');
-            settings->password = strdup(passBuf);
-        }
+			settings->password = strdup (passBuf);
+		}
         else
         {
-            //pid_t chld;
-            //int pipeFd[2];
+			//pid_t chld;
+			//int pipeFd[2];
 
             //BarUiMsg (settings, MSG_INFO, "Requesting password from external helper... ");
 
