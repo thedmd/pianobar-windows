@@ -31,6 +31,7 @@ THE SOFTWARE.
 #include "ui.h"
 #include "ui_dispatch.h"
 #include "ui_readline.h"
+#include "settings.h"
 
 /*	authenticate user
  */
@@ -238,7 +239,7 @@ static void BarMainStartPlayback(BarApp_t *app)
     }
     else
     {
-        BarPlayer2SetGain(app->player, curSong->fileGain);
+        BarPlayer2SetGain(app->player, curSong->fileGain * app->settings.gainMul);
         BarPlayer2Open(app->player, curSong->audioUrl);
 
         /* throw event */
