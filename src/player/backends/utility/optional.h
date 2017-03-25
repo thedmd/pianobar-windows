@@ -1,8 +1,6 @@
 //------------------------------------------------------------------------------
 //
 //------------------------------------------------------------------------------
-# ifndef __TD__OPTIONAL_H__
-# define __TD__OPTIONAL_H__
 # pragma once
 
 # include <type_traits>
@@ -512,6 +510,3 @@ inline bool operator>=(const T& v, const optional<T>& opt)
     using namespace std;
     return static_cast<bool>(opt) ? greater_equal<T>(v, *opt) : true;
 }
-
-
-# endif // __TD__OPTIONAL_H__
