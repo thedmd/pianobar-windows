@@ -1,0 +1,79 @@
+version: '{branch}-{build}'
+configuration: Release
+platform:
+- x86
+- x64
+clone_script:
+- ps: >-
+    # Clone build environment
+
+    git clone -q --branch=master https://github.com/thedmd/pianobar-windows-build.git $env:appveyor_build_folder
+
+
+    # Clone project itself
+
+    if(-not $env:appveyor_pull_request_number) {
+        git clone -q --branch=$env:appveyor_repo_branch https://github.com/$env:appveyor_repo_name.git $env:appveyor_build_folder\pianobar\src
+        cd $env:appveyor_build_folder\pianobar\src; git checkout -qf $env:appveyor_repo_commit
+    } else {
+        git clone -q https://github.com/$env:appveyor_repo_name.git $env:appveyor_build_folder\pianobar\src
+        cd $env:appveyor_build_folder\pianobar\src; git fetch -q origin +refs/pull/$env:appveyor_pull_request_number/merge:
+        cd $env:appveyor_build_folder\pianobar\src; git checkout -qf FETCH_HEAD
+    }
+build:
+  verbosity: minimal
+after_build:
+- ps: >-
+    $artifactName = "pianobar"
+
+    if([System.Convert]::ToBoolean($env:appveyor_repo_tag))
+
+    {
+        $artifactName = "$artifactName-$env:appveyor_repo_tag_name"
+    }
+
+    else
+
+    {
+        $branchName = $env:appveyor_build_version -replace "/", "-"
+        $artifactName = "$artifactName-$branchName"
+    }
+
+
+    function Package
+
+    {
+    	[cmdletbinding()]
+    	Param([string]$BinaryDir, [string]$ArtifactName, [string]$OutputDir, [string]$Suffix)
+    	Process
+    	{
+    		New-Item -ItemType directory $OutputDir\release-$Suffix
+    		Copy-Item $env:appveyor_build_folder\pianobar\src\release\* $OutputDir\release-$Suffix
+    		Copy-Item $BinaryDir\*.exe $OutputDir\release-$Suffix
+    		7z a $OutputDir\$ArtifactName-$Suffix.zip $OutputDir\release-$Suffix\*
+    	}
+    }
+
+
+    if(Test-Path -Path $env:appveyor_build_folder\build\Win32)
+
+    {
+    	Package -BinaryDir $env:appveyor_build_folder\build\Win32 -ArtifactName $artifactName -Suffix x86 -OutputDir $env:appveyor_build_folder\build
+    }
+
+
+    if(Test-Path -Path $env:appveyor_build_folder\build\x64)
+
+    {
+    	Package -BinaryDir $env:appveyor_build_folder\build\x64 -ArtifactName $artifactName -Suffix x64 -OutputDir $env:appveyor_build_folder\build
+    }
+artifacts:
+- path: build\*.zip
+deploy:
+- provider: GitHub
+  auth_token:
+    secure: bXlXe4mzmi9lpGSfWMvWf01I05hyCuYZAVrlM5ZUad86QfyYvO6EeKTPaCpbjdyp
+  draft: true
+  force_update: true
+  on:
+    branch: /\d\d\d\d\.\d\d.\d\d.*/
