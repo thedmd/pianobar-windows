@@ -44,6 +44,7 @@ static wchar_t* HttpToWideString(const char* string, int size);
 static bool HttpCreateConnection (http_t http);
 static void HttpCloseConnection (http_t http);
 static void HttpSetLastError (http_t http, const char* message);
+static void HttpSetLastErrorW (http_t http, const wchar_t* message);
 static void HttpSetLastErrorFromWinHttp (http_t http);
 static char* HttpFormatWinApiError (DWORD errorCode, HINSTANCE module);
 static char* HttpFormatWinHttpError (DWORD errorCode);
@@ -118,9 +119,17 @@ static void HttpCloseConnection (http_t http) {
 static void HttpSetLastError (http_t http, const char* message) {
 	free(http->error);
 	http->error = NULL;
-	
+
 	if (message)
 		http->error = strdup(message);
+}
+
+static void HttpSetLastErrorW (http_t http, const wchar_t* message) {
+	free(http->error);
+	http->error = NULL;
+
+	if (message)
+		http->error = HttpToString(message, wcslen(message));
 }
 
 static void HttpSetLastErrorFromWinHttp (http_t http) {
@@ -396,6 +405,13 @@ bool HttpRequest(http_t http, PianoRequest_t * const request) {
 		}
 
 		if (succeeded && statusCode == 407) {
+			wchar_t statusText[256] = { 0 };
+			DWORD statusTextSize = sizeof(statusText) - 1;
+			WinHttpQueryHeaders(handle,
+				WINHTTP_QUERY_STATUS_TEXT,
+				WINHTTP_HEADER_NAME_BY_INDEX,
+				statusText, &statusTextSize, WINHTTP_NO_HEADER_INDEX);
+			HttpSetLastErrorW (http, statusText);
 			requestSent = false;
 			retry       = true;
 		}
@@ -466,6 +482,9 @@ bool HttpRequest(http_t http, PianoRequest_t * const request) {
 		if (bytesLeft > 0)
 			HttpSetLastError (http, "Maximum retries count exceeded");
 	}
+
+	if (retryLimit == 0)
+		goto done;
 
 	complete = true;
 

@@ -42,7 +42,9 @@ typedef struct {
 	/* first item is current song */
 	PianoSong_t *playlist;
 	PianoSong_t *songHistory;
-	PianoStation_t *curStation;
+	/* station of current song and station used to fetch songs from if playlist
+	 * is empty */
+	PianoStation_t *curStation, *nextStation;
 	char doQuit;
 	BarReadline_t rl;
 	unsigned int playerErrors;
