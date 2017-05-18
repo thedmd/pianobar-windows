@@ -44,6 +44,7 @@ static wchar_t* HttpToWideString(const char* string, int size);
 static bool HttpCreateConnection (http_t http);
 static void HttpCloseConnection (http_t http);
 static void HttpSetLastError (http_t http, const char* message);
+static void HttpSetLastErrorW (http_t http, const wchar_t* message);
 static void HttpSetLastErrorFromWinHttp (http_t http);
 static char* HttpFormatWinApiError (DWORD errorCode, HINSTANCE module);
 static char* HttpFormatWinHttpError (DWORD errorCode);
@@ -118,9 +119,17 @@ static void HttpCloseConnection (http_t http) {
 static void HttpSetLastError (http_t http, const char* message) {
 	free(http->error);
 	http->error = NULL;
-	
+
 	if (message)
 		http->error = strdup(message);
+}
+
+static void HttpSetLastErrorW (http_t http, const wchar_t* message) {
+	free(http->error);
+	http->error = NULL;
+
+	if (message)
+		http->error = HttpToString(message, wcslen(message));
 }
 
 static void HttpSetLastErrorFromWinHttp (http_t http) {
@@ -241,6 +250,32 @@ bool HttpSetAutoProxy (http_t http, const char* url) {
 		return false;
 }
 
+static void HttpUrlDecodeInplace (wchar_t* url)
+{
+	wchar_t* input = url;
+	wchar_t* output = url;
+	size_t size = wcslen (url);
+	while (size > 0) {
+		if (input[0] == '%' && iswxdigit(input[1]) && iswxdigit(input[2])) {
+			wchar_t hex[3];
+			hex[0] = input[1];
+			hex[1] = input[2];
+			hex[2] = 0;
+			*output++ = (wchar_t)(wcstol (hex, NULL, 16));
+			input += 3;
+			size -= 3;
+		}
+		else {
+			*output++ = *input++;
+			--size;
+		}
+	}
+
+	if (output < input) {
+		*output = '\0';
+	}
+}
+
 bool HttpSetProxy (http_t http, const char* url) {
 	URL_COMPONENTS urlComponents;
 	wchar_t* wideUrl = NULL;
@@ -258,10 +293,12 @@ bool HttpSetProxy (http_t http, const char* url) {
 		if (urlComponents.lpszUserName && urlComponents.dwUserNameLength > 0) {
 			wideUsername = wcsdup(urlComponents.lpszUserName);
 			wideUsername[urlComponents.dwUserNameLength] = 0;
+			HttpUrlDecodeInplace (wideUsername);
 		}
 		if (urlComponents.lpszPassword && urlComponents.dwPasswordLength > 0) {
 			widePassword = wcsdup(urlComponents.lpszPassword);
 			widePassword[urlComponents.dwPasswordLength] = 0;
+			HttpUrlDecodeInplace (widePassword);
 		}
 	}
 
@@ -396,6 +433,13 @@ bool HttpRequest(http_t http, PianoRequest_t * const request) {
 		}
 
 		if (succeeded && statusCode == 407) {
+			wchar_t statusText[256] = { 0 };
+			DWORD statusTextSize = sizeof(statusText) - 1;
+			WinHttpQueryHeaders(handle,
+				WINHTTP_QUERY_STATUS_TEXT,
+				WINHTTP_HEADER_NAME_BY_INDEX,
+				statusText, &statusTextSize, WINHTTP_NO_HEADER_INDEX);
+			HttpSetLastErrorW (http, statusText);
 			requestSent = false;
 			retry       = true;
 		}
@@ -466,6 +510,9 @@ bool HttpRequest(http_t http, PianoRequest_t * const request) {
 		if (bytesLeft > 0)
 			HttpSetLastError (http, "Maximum retries count exceeded");
 	}
+
+	if (retryLimit == 0)
+		goto done;
 
 	complete = true;
 

@@ -21,8 +21,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#ifndef SRC_SETTINGS_H_IPL0ON9L
-#define SRC_SETTINGS_H_IPL0ON9L
+#pragma once
 
 #include <stdbool.h>
 
@@ -83,16 +82,20 @@ typedef struct {
 	char *postfix;
 } BarMsgFormatStr_t;
 
+#include "ui_types.h"
+
 typedef struct {
 	bool autoselect;
 	unsigned int history, maxPlayerErrors;
 	int volume;
+	float gainMul;
 	BarStationSorting_t sortOrder;
 	PianoAudioQuality_t audioQuality;
 	char *username;
 	char *password, *passwordCmd;
 	char *controlProxy; /* non-american listeners need this */
 	char *proxy;
+	char *bindTo;
 	char *autostartStation;
 	char *eventCmd;
 	char *loveIcon;
@@ -114,4 +117,3 @@ void BarSettingsDestroy (BarSettings_t *);
 void BarSettingsRead (BarSettings_t *);
 void BarSettingsWrite (PianoStation_t *, BarSettings_t *);
 
-#endif /* SRC_SETTINGS_H_IPL0ON9L */

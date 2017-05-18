@@ -1,5 +1,3 @@
-# ifndef __TD__BASIC_MEDIA_PLAYER_H__
-# define __TD__BASIC_MEDIA_PLAYER_H__
 # pragma once
 
 # include <mfapi.h>
@@ -98,7 +96,7 @@ private:
     com_ptr<IMFSimpleAudioVolume>   m_SimpleAudioVolume;
     com_ptr<IMFPresentationClock>   m_PresentationClock;
     com_ptr<IMFAudioStreamVolume>   m_StreamAudioVolume;
-    
+
     optional<float>                 m_SetMasterVolume;
     mutable float                   m_MasterVolume;
     mutable float                   m_ReplayGain;
@@ -110,6 +108,3 @@ private:
     State                           m_State;
     HANDLE                          m_CloseEvent;
 };
-
-
-# endif // __TD__BASIC_MEDIA_PLAYER_H__

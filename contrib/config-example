@@ -10,6 +10,7 @@
 
 # Proxy (for those who are not living in the USA)
 #control_proxy = http://127.0.0.1:9090/
+#bind_to = if!tun0
 
 # Keybindings
 #act_help = ?
@@ -49,6 +50,7 @@
 #ban_icon = [-]
 #volume = 0
 #ca_bundle = /etc/ssl/certs/ca-certificates.crt
+#gain_mul = 1.0
 
 # Format strings
 #format_nowplaying_song = [32m%t[0m by [34m%a[0m on %l[31m%r[0m%@%s

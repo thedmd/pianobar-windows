@@ -21,8 +21,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#ifndef SRC_UI_TYPES_H_2HR75RII
-#define SRC_UI_TYPES_H_2HR75RII
+# pragma once
 
 typedef enum {
 	MSG_NONE = 0,
@@ -36,4 +35,3 @@ typedef enum {
 	MSG_COUNT = 8, /* invalid type */
 } BarUiMsg_t;
 
-#endif /* SRC_UI_TYPES_H_2HR75RII */

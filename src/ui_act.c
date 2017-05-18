@@ -224,11 +224,17 @@ BarUiActCallback(BarUiActDeleteStation) {
 		if (BarUiActDefaultPianoCall (PIANO_REQUEST_DELETE_STATION,
 				selStation) && selStation == app->curStation) {
 			BarUiDoSkipSong (app->player);
-			PianoDestroyPlaylist (PianoListNextP (app->playlist));
-			app->playlist->head.next = NULL;
-			BarUiHistoryPrepend (app, app->playlist);
-			app->playlist = NULL;
+			if (app->playlist != NULL) {
+				/* drain playlist */
+				PianoDestroyPlaylist (PianoListNextP (app->playlist));
+				app->playlist->head.next = NULL;
+				selSong = NULL;
+			}
+			app->nextStation = NULL;
+			/* XXX: usually we shoudn’t touch cur*, but DELETE_STATION destroys
+			 * station struct */
 			app->curStation = NULL;
+			selStation = NULL;
 		}
 		BarUiActDefaultEventcmd ("stationdelete");
 	}
@@ -446,14 +452,12 @@ BarUiActCallback(BarUiActSelectStation) {
 	PianoStation_t *newStation = BarUiSelectStation (app, app->ph.stations,
 			"Select station: ", NULL, app->settings.autoselect);
 	if (newStation != NULL) {
-		app->curStation = newStation;
-		BarUiPrintStation (&app->settings, app->curStation);
+		app->nextStation = newStation;
 		BarUiDoSkipSong (app->player);
 		if (app->playlist != NULL) {
+			/* drain playlist */
 			PianoDestroyPlaylist (PianoListNextP (app->playlist));
 			app->playlist->head.next = NULL;
-			BarUiHistoryPrepend (app, app->playlist);
-			app->playlist = NULL;
 		}
 	}
 }

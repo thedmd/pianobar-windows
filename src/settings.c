@@ -27,11 +27,13 @@ THE SOFTWARE.
 
 #include "settings.h"
 #include "config.h"
+#include "ui.h"
 #include "ui_dispatch.h"
 #include <stdlib.h>
 #include <assert.h>
 #include <memory.h>
 #include <string.h>
+#include <ctype.h>
 
 #define PACKAGE_CONFIG	PACKAGE ".cfg"
 #define PACKAGE_STATE	PACKAGE ".state"
@@ -119,6 +121,7 @@ void BarSettingsInit (BarSettings_t *settings) {
 void BarSettingsDestroy (BarSettings_t *settings) {
 	free (settings->controlProxy);
 	free (settings->proxy);
+	free (settings->bindTo);
 	free (settings->username);
 	free (settings->password);
 	free (settings->passwordCmd);
@@ -169,6 +172,7 @@ void BarSettingsRead (BarSettings_t *settings) {
 	settings->autoselect = true;
 	settings->history = 5;
 	settings->volume = 0;
+	settings->gainMul = 1.0;
 	settings->maxPlayerErrors = 5;
 	settings->sortOrder = BAR_SORT_NAME_AZ;
 	settings->loveIcon = strdup (" <3");
@@ -180,7 +184,7 @@ void BarSettingsRead (BarSettings_t *settings) {
 	settings->titleFormat = strdup (TITLE " - \"%t\" by \"%a\" on \"%l\"%r%@%s");
 	settings->player = NULL;
 	settings->rpcHost = strdup (PIANO_RPC_HOST);
-	settings->rpcTlsPort = NULL;
+	settings->rpcTlsPort = strdup ("443");
 	settings->partnerUser = strdup ("android");
 	settings->partnerPassword = strdup ("AC7IBG09A3DTSYM4R41UJWL07VLN8JI7");
 	settings->device = strdup ("android-generic");
@@ -213,8 +217,9 @@ void BarSettingsRead (BarSettings_t *settings) {
 	/* read config files */
 	for (size_t j = 0; j < sizeof (configfiles) / sizeof (*configfiles); j++) {
 		static const char *formatMsgPrefix = "format_msg_";
-		char key[256], val[256];
 		FILE *configfd;
+		char line[512];
+		size_t lineNum = 0;
 
 		char * const path = BarGetXdgConfigDir (configfiles[j]);
 		assert (path != NULL);
@@ -224,18 +229,70 @@ void BarSettingsRead (BarSettings_t *settings) {
 		}
 
 		while (1) {
-			char lwhite, rwhite;
-			int scanRet = fscanf (configfd, "%255s%c=%c%255[^\n]", key, &lwhite, &rwhite, val);
-			if (scanRet == EOF) {
+			++lineNum;
+			char * const ret = fgets (line, sizeof (line), configfd);
+			if (ret == NULL) {
+				/* EOF or error */
 				break;
-			} else if (scanRet != 4 || lwhite != ' ' || rwhite != ' ') {
-				/* invalid config line */
+			}
+			if (strchr (line, '\n') == NULL && !feof (configfd)) {
+				BarUiMsg (settings, MSG_INFO, "Line %s:%zu too long, "
+						"ignoring\n", path, lineNum);
 				continue;
 			}
+			/* parse lines that match "^\s*(.*?)\s?=\s?(.*)$". Windows and Unix
+			 * line terminators are supported. */
+			char *key = line;
+
+			/* skip leading spaces */
+			while (isspace ((unsigned char) key[0])) {
+				++key;
+			}
+
+			/* skip comments */
+			if (key[0] == '#') {
+				continue;
+			}
+
+			/* search for delimiter and split key-value pair */
+			char *val = strchr (line, '=');
+			if (val == NULL) {
+				/* no warning for empty lines */
+				if (key[0] != '\0') {
+					BarUiMsg (settings, MSG_INFO,
+							"Invalid line at %s:%zu\n", path, lineNum);
+				}
+				/* invalid line */
+				continue;
+			}
+			*val = '\0';
+			++val;
+
+			/* drop spaces at the end */
+			char *keyend = &key[strlen (key)-1];
+			while (keyend >= key && isspace ((unsigned char) *keyend)) {
+				*keyend = '\0';
+				--keyend;
+			}
+
+			/* strip at most one space, legacy cruft, required for values with
+			 * leading spaces like love_icon */
+			if (isspace ((unsigned char) val[0])) {
+				++val;
+			}
+			/* drop trailing cr/lf */
+			char *valend = &val[strlen (val)-1];
+			while (valend >= val && (*valend == '\r' || *valend == '\n')) {
+				*valend = '\0';
+				--valend;
+			}
+
 			if (streq ("control_proxy", key)) {
 				settings->controlProxy = strdup (val);
 			} else if (streq ("proxy", key)) {
 				settings->proxy = strdup (val);
+			} else if (streq ("bind_to", key)) {
+				settings->bindTo = strdup (val);
 			} else if (streq ("user", key)) {
 				settings->username = strdup (val);
 			} else if (streq ("password", key)) {
@@ -322,6 +379,8 @@ void BarSettingsRead (BarSettings_t *settings) {
 				settings->atIcon = strdup (val);
 			} else if (streq ("volume", key)) {
 				settings->volume = atoi (val);
+			} else if (streq ("gain_mul", key)) {
+				settings->gainMul = (float)atof (val);
 			} else if (streq ("format_nowplaying_song", key)) {
 				free (settings->npSongFormat);
 				settings->npSongFormat = strdup (val);

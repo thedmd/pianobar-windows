@@ -21,8 +21,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#ifndef SRC_LIBPIANO_CRYPT_H_O832IVGK
-#define SRC_LIBPIANO_CRYPT_H_O832IVGK
+#pragma once
 
 #include "piano.h"
 
@@ -34,4 +33,3 @@ char *PianoDecryptString (PianoCipher_t, const char * const,
 		size_t * const);
 char *PianoEncryptString (PianoCipher_t, const char *);
 
-#endif /* SRC_LIBPIANO_CRYPT_H_O832IVGK */

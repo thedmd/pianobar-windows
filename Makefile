@@ -84,26 +84,34 @@ ALL_LDFLAGS:=${LDFLAGS} -lao -lpthread -lm \
 			${LIBAV_LDFLAGS} ${LIBGNUTLS_LDFLAGS} \
 			${LIBGCRYPT_LDFLAGS} ${LIBJSONC_LDFLAGS} ${LIBCURL_LDFLAGS}
 
+# Be verbose if V=1 (gnu autotools’ --disable-silent-rules)
+SILENTCMD:=@
+SILENTECHO:=@echo
+ifeq (${V},1)
+	SILENTCMD:=
+	SILENTECHO:=@true
+endif
+
 # build pianobar
 ifeq (${DYNLINK},1)
 pianobar: ${PIANOBAR_OBJ} ${PIANOBAR_HDR} libpiano.so.0
-	@echo "  LINK  $@"
-	@${CC} -o $@ ${PIANOBAR_OBJ} -L. -lpiano ${ALL_LDFLAGS}
+	${SILENTECHO} "  LINK  $@"
+	${SILENTCMD}${CC} -o $@ ${PIANOBAR_OBJ} -L. -lpiano ${ALL_LDFLAGS}
 else
 pianobar: ${PIANOBAR_OBJ} ${PIANOBAR_HDR} ${LIBPIANO_OBJ}
-	@echo "  LINK  $@"
-	@${CC} -o $@ ${PIANOBAR_OBJ} ${LIBPIANO_OBJ} ${ALL_LDFLAGS}
+	${SILENTECHO} "  LINK  $@"
+	${SILENTCMD}${CC} -o $@ ${PIANOBAR_OBJ} ${LIBPIANO_OBJ} ${ALL_LDFLAGS}
 endif
 
 # build shared and static libpiano
 libpiano.so.0: ${LIBPIANO_RELOBJ} ${LIBPIANO_HDR} ${LIBPIANO_OBJ}
-	@echo "  LINK  $@"
-	@${CC} -shared -Wl,-soname,libpiano.so.0 -o libpiano.so.0.0.0 \
+	${SILENTECHO} "  LINK  $@"
+	${SILENTCMD}${CC} -shared -Wl,-soname,libpiano.so.0 -o libpiano.so.0.0.0 \
 			${LIBPIANO_RELOBJ} ${ALL_LDFLAGS}
-	@ln -fs libpiano.so.0.0.0 libpiano.so.0
-	@ln -fs libpiano.so.0 libpiano.so
-	@echo "    AR  libpiano.a"
-	@${AR} rcs libpiano.a ${LIBPIANO_OBJ}
+	${SILENTCMD}ln -fs libpiano.so.0.0.0 libpiano.so.0
+	${SILENTCMD}ln -fs libpiano.so.0 libpiano.so
+	${SILENTECHO} "    AR  libpiano.a"
+	${SILENTCMD}${AR} rcs libpiano.a ${LIBPIANO_OBJ}
 
 
 -include $(PIANOBAR_SRC:.c=.d)
@@ -111,17 +119,17 @@ libpiano.so.0: ${LIBPIANO_RELOBJ} ${LIBPIANO_HDR} ${LIBPIANO_OBJ}
 
 # build standard object files
 %.o: %.c
-	@echo "    CC  $<"
-	@${CC} -c -o $@ ${ALL_CFLAGS} -MMD -MF $*.d -MP $<
+	${SILENTECHO} "    CC  $<"
+	${SILENTCMD}${CC} -c -o $@ ${ALL_CFLAGS} -MMD -MF $*.d -MP $<
 
 # create position independent code (for shared libraries)
 %.lo: %.c
-	@echo "    CC  $< (PIC)"
-	@${CC} -c -fPIC -o $@ ${ALL_CFLAGS} -MMD -MF $*.d -MP $<
+	${SILENTECHO} "    CC  $< (PIC)"
+	${SILENTCMD}${CC} -c -fPIC -o $@ ${ALL_CFLAGS} -MMD -MF $*.d -MP $<
 
 clean:
-	@echo " CLEAN"
-	@${RM} ${PIANOBAR_OBJ} ${LIBPIANO_OBJ} \
+	${SILENTECHO} " CLEAN"
+	${SILENTCMD}${RM} ${PIANOBAR_OBJ} ${LIBPIANO_OBJ} \
 			${LIBPIANO_RELOBJ} pianobar libpiano.so* \
 			libpiano.a $(PIANOBAR_SRC:.c=.d) $(LIBPIANO_SRC:.c=.d)
 
@@ -146,4 +154,13 @@ install-libpiano:
 	install -d ${DESTDIR}${INCDIR}/
 	install -m644 src/libpiano/piano.h ${DESTDIR}${INCDIR}/
 
-.PHONY: install install-libpiano test debug all
+uninstall:
+	$(RM) ${DESTDIR}/${BINDIR}/pianobar \
+	${DESTDIR}/${MANDIR}/man1/pianobar.1 \
+	${DESTDIR}/${LIBDIR}/libpiano.so.0.0.0 \
+	${DESTDIR}/${LIBDIR}/libpiano.so.0 \
+	${DESTDIR}/${LIBDIR}/libpiano.so \
+	${DESTDIR}/${LIBDIR}/libpiano.a \
+	${DESTDIR}/${INCDIR}/piano.h
+
+.PHONY: install install-libpiano uninstall test debug all

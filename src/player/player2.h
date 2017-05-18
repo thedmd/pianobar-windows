@@ -21,8 +21,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#ifndef __PIANOBAR_PLAYER2_H__
-#define __PIANOBAR_PLAYER2_H__
 #pragma once
 
 #include "config.h"
@@ -48,6 +46,4 @@ bool BarPlayer2IsPlaying(player2_t player);
 bool BarPlayer2IsPaused(player2_t player);
 bool BarPlayer2IsStopped(player2_t player);
 bool BarPlayer2IsFinished(player2_t player);
-
-#endif /* __PIANOBAR_PLAYER2_H__ */
 

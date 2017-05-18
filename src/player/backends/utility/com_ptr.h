@@ -1,5 +1,3 @@
-# ifndef __TD__COM_PTR_H__
-# define __TD__COM_PTR_H__
 # pragma once
 
 template <typename T>
@@ -144,5 +142,3 @@ template <typename T> inline bool operator<=(const com_ptr<T>& a, const com_ptr<
 template <typename T> inline bool operator>(const com_ptr<T>& a, const com_ptr<T>& b) { return std::greater<T*>()(a.get(), b.get()); }
 template <typename T> inline bool operator>=(const com_ptr<T>& a, const com_ptr<T>& b) { return std::greater_equal<T*>()(a.get(), b.get()); }
 template <typename T> void swap(com_ptr<T> & lhs, com_ptr<T> & rhs) { lhs.swap(rhs); }
-
-# endif // __TD__COM_PTR_H__

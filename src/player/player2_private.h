@@ -1,5 +1,3 @@
-#ifndef __PIANOBAR_PLAYER2_PRIVATE_H__
-#define __PIANOBAR_PLAYER2_PRIVATE_H__
 #pragma once
 
 #include "config.h"
@@ -32,4 +30,3 @@ typedef struct _player2_iface
 extern player2_iface player2_direct_show;
 extern player2_iface player2_windows_media_foundation;
 
-#endif /* __PIANOBAR_PLAYER2_PRIVATE_H__ */

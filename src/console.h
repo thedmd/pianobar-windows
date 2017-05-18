@@ -21,8 +21,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#ifndef SRC_CONSOLE_H_WY8F3MNH
-#define SRC_CONSOLE_H_WY8F3MNH
+# pragma once
 
 #include "config.h"
 #include <stdio.h>
@@ -49,4 +48,3 @@ void BarConsolePuts(const char* c);
 void BarConsolePrint(const char* format, ...);
 void BarConsolePrintV(const char* format, va_list args);
 
-#endif /* SRC_CONSOLE_H_WY8F3MNH */

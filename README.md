@@ -1,9 +1,15 @@
-#pianobar
-
 pianobar is a console client for the personalized web radio [Pandora]
-([http://www.pandora.com](http://www.pandora.com)).
+([http://www.pandora.com](http://www.pandora.com)) ported to Windows.
 
-###Features
+![pianobar](https://github.com/thedmd/pianobar-windows/blob/feature/appveyor/screenshots/pianobar.png)
+
+# Releases
+
+Releases can be found at [GitHub Release page](https://github.com/thedmd/pianobar-windows/releases).
+
+[![Build status](https://ci.appveyor.com/api/projects/status/6n5qa9bs7aiy8e52?svg=true)](https://ci.appveyor.com/project/thedmd/pianobar-windows)
+
+### Features
 
 * Play and manage (create, add more music, delete, rename, ...) your stations.
 * Rate played songs and let pandora explain why they have been selected.
@@ -12,11 +18,14 @@ pianobar is a console client for the personalized web radio [Pandora]
 * last.fm scrobbling support (external application)
 * Proxy support for listeners outside the USA.
 
-###Source Code
+### Source Code
 
-The source code can be downloaded at [github.com](http://github.com/PromyLOPh/pianobar/)
+Original source code can be downloaded at [github.com](http://github.com/PromyLOPh/pianobar/)
 or [6xq.net](http://6xq.net/projects/pianobar/).
 
-###Download/Installation
+### Building
 
-There are community provided packages available for most Linux distributions (see your distribution’s package manager), Mac OS X ([MacPorts](http://trac.macports.org/browser/trunk/dports/audio/pianobar/Portfile) or [homebrew](http://brew.sh/)) and *BSD as well as a [native Windows port](https://github.com/thedmd/pianobar-windows).
+Checkout [pianobar-windows-build](https://github.com/thedmd/pianobar-windows-build) where
+you will find configured solution for Visual Studio 2015.
+
+This repository is linked by GitHub submodule.

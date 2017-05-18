@@ -21,8 +21,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#ifndef SRC_HTTP_H_CN979RE9
-#define SRC_HTTP_H_CN979RE9
+#pragma once
 
 #include "config.h"
 
@@ -41,6 +40,4 @@ bool HttpSetProxy(http_t, const char*);
 
 bool HttpRequest (http_t, PianoRequest_t * const);
 const char* HttpGetError (http_t);
-
-#endif /* SRC_HTTP_H_CN979RE9 */
 
