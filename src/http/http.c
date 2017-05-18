@@ -250,6 +250,32 @@ bool HttpSetAutoProxy (http_t http, const char* url) {
 		return false;
 }
 
+static void HttpUrlDecodeInplace (wchar_t* url)
+{
+	wchar_t* input = url;
+	wchar_t* output = url;
+	size_t size = wcslen (url);
+	while (size > 0) {
+		if (input[0] == '%' && iswxdigit(input[1]) && iswxdigit(input[2])) {
+			wchar_t hex[3];
+			hex[0] = input[1];
+			hex[1] = input[2];
+			hex[2] = 0;
+			*output++ = (wchar_t)(wcstol (hex, NULL, 16));
+			input += 3;
+			size -= 3;
+		}
+		else {
+			*output++ = *input++;
+			--size;
+		}
+	}
+
+	if (output < input) {
+		*output = '\0';
+	}
+}
+
 bool HttpSetProxy (http_t http, const char* url) {
 	URL_COMPONENTS urlComponents;
 	wchar_t* wideUrl = NULL;
@@ -267,10 +293,12 @@ bool HttpSetProxy (http_t http, const char* url) {
 		if (urlComponents.lpszUserName && urlComponents.dwUserNameLength > 0) {
 			wideUsername = wcsdup(urlComponents.lpszUserName);
 			wideUsername[urlComponents.dwUserNameLength] = 0;
+			HttpUrlDecodeInplace (wideUsername);
 		}
 		if (urlComponents.lpszPassword && urlComponents.dwPasswordLength > 0) {
 			widePassword = wcsdup(urlComponents.lpszPassword);
 			widePassword[urlComponents.dwPasswordLength] = 0;
+			HttpUrlDecodeInplace (widePassword);
 		}
 	}
 
