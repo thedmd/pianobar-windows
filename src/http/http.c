@@ -301,6 +301,9 @@ bool HttpSetProxy (http_t http, const char* url) {
 			HttpUrlDecodeInplace (widePassword);
 		}
 	}
+	else {
+		HttpSetLastErrorFromWinHttp(http);
+	}
 
 	ZeroMemory(&urlComponents, sizeof(urlComponents));
 	urlComponents.dwStructSize = sizeof(urlComponents);
@@ -311,6 +314,9 @@ bool HttpSetProxy (http_t http, const char* url) {
 		free(wideUsername);
 		free(widePassword);
 		return false;
+	}
+	else {
+		HttpSetLastErrorFromWinHttp(http);
 	}
 
 	if (urlComponents.lpszHostName && urlComponents.dwHostNameLength > 0) {

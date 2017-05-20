@@ -413,7 +413,15 @@ int main(int argc, char **argv)
 
     HttpInit(&app.http2, app.settings.rpcHost, app.settings.rpcTlsPort);
     if (app.settings.controlProxy)
-        HttpSetProxy(app.http2, app.settings.controlProxy);
+    {
+        if (!HttpSetProxy(app.http2, app.settings.controlProxy))
+        {
+            BarUiMsg(&app.settings, MSG_NONE, "Control Proxy error: %s\n",
+                HttpGetError(app.http2));
+
+            return 0;
+        }
+    }
 
 
     BarReadlineInit(&app.rl);
