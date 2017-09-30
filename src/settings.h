@@ -98,8 +98,7 @@ typedef struct {
 	char *bindTo;
 	char *autostartStation;
 	char *eventCmd;
-	char *loveIcon;
-	char *banIcon;
+	char *loveIcon, *banIcon, *tiredIcon;
 	char *atIcon;
 	char *npSongFormat;
 	char *npStationFormat;
