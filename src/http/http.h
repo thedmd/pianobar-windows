@@ -32,7 +32,7 @@ THE SOFTWARE.
 
 typedef struct _http_t *http_t;
 
-bool HttpInit (http_t*, const char*, const char*);
+bool HttpInit (http_t*, const char*, const char*, unsigned int);
 void HttpDestroy (http_t);
 
 bool HttpSetAutoProxy (http_t, const char*);
