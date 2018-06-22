@@ -3,7 +3,7 @@
 /* package name */
 #define PACKAGE "pianobar"
 
-#define VERSION "2015.12.10-dev"
+#define VERSION "2015.10.30"
 
 #define TITLE   "Pianobar"
 
