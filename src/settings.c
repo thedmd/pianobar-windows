@@ -129,6 +129,7 @@ void BarSettingsDestroy (BarSettings_t *settings) {
 	free (settings->eventCmd);
 	free (settings->loveIcon);
 	free (settings->banIcon);
+	free (settings->tiredIcon);
 	free (settings->atIcon);
 	free (settings->npSongFormat);
 	free (settings->npStationFormat);
@@ -172,11 +173,14 @@ void BarSettingsRead (BarSettings_t *settings) {
 	settings->autoselect = true;
 	settings->history = 5;
 	settings->volume = 0;
+	settings->timeout = 30; /* seconds */
 	settings->gainMul = 1.0;
-	settings->maxPlayerErrors = 5;
+	/* should be > 4, otherwise expired audio urls (403) can stop playback */
+	settings->maxRetry = 5;
 	settings->sortOrder = BAR_SORT_NAME_AZ;
 	settings->loveIcon = strdup (" <3");
 	settings->banIcon = strdup (" </3");
+	settings->tiredIcon = strdup (" zZ");
 	settings->atIcon = strdup (" @ ");
 	settings->npSongFormat = strdup ("\"%t\" by \"%a\" on \"%l\"%r%@%s");
 	settings->npStationFormat = strdup ("Station \"%n\" (%i)");
@@ -351,8 +355,10 @@ void BarSettingsRead (BarSettings_t *settings) {
 				settings->eventCmd = BarSettingsExpandTilde (val, userhome);
 			} else if (streq ("history", key)) {
 				settings->history = atoi (val);
-			} else if (streq ("max_player_errors", key)) {
-				settings->maxPlayerErrors = atoi (val);
+			} else if (streq ("max_retry", key)) {
+				settings->maxRetry = atoi (val);
+			} else if (streq ("timeout", key)) {
+				settings->timeout = atoi (val);
 			} else if (streq ("sort", key)) {
 				size_t i;
 				static const char *mapping[] = {"name_az",
@@ -374,6 +380,9 @@ void BarSettingsRead (BarSettings_t *settings) {
 			} else if (streq ("ban_icon", key)) {
 				free (settings->banIcon);
 				settings->banIcon = strdup (val);
+			} else if (streq ("tired_icon", key)) {
+				free (settings->tiredIcon);
+				settings->tiredIcon = strdup (val);
 			} else if (streq ("at_icon", key)) {
 				free (settings->atIcon);
 				settings->atIcon = strdup (val);

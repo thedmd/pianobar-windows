@@ -196,7 +196,7 @@ or the key you defined in
 .B act_songinfo.
 
 .TP
-.B ban_icon = </3
+.B ban_icon =  </3
 Icon for banned songs.
 
 .TP
@@ -255,6 +255,17 @@ Song title
 .B %r
 Rating icon
 
+.B %d
+Song duration
+
+.B %@
+
+The at_icon
+
+.B %s
+
+Song’s station, if not the current station.
+
 .TP
 .B format_msg_none = %s
 .TQ
@@ -287,7 +298,7 @@ Song artist
 Album name
 
 .B %r
-Rating icon (only love icon)
+Rating icon
 
 .B %@
 .B at_icon
@@ -320,12 +331,12 @@ of gain adjustment.
 Keep a history of the last n songs (5, by default). You can rate these songs.
 
 .TP
-.B love_icon = <3
+.B love_icon =  <3
 Icon for loved songs.
 
 .TP
-.B max_player_errors = 5
-Amount of song download errors in a row after pianobar stops playback.
+.B max_retry = 3
+Max failures for several actions before giving up.
 
 .TP
 .B partner_password = AC7IBG09A3DTSYM4R41UJWL07VLN8JI7
@@ -359,6 +370,14 @@ variable. Only "Basic" http authentication is supported.
 Sort station list by name or type (is quickmix) and name. name_az for example
 sorts by name from a to z, quickmix_01_name_za by type (quickmix at the
 bottom) and name from z to a.
+
+.TP
+.B timeout = 30
+Network operation timeout.
+
+.TP
+.B tired_icon =  zZ
+Icon for temporarily suspended songs.
 
 .TP
 .B user = your@user.name

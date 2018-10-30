@@ -1,5 +1,4 @@
-pianobar is a console client for the personalized web radio [Pandora]
-([http://www.pandora.com](http://www.pandora.com)) ported to Windows.
+pianobar is a console client for the personalized web radio [Pandora](http://www.pandora.com) ported to Windows.
 
 ![pianobar](https://github.com/thedmd/pianobar-windows/blob/feature/appveyor/screenshots/pianobar.png)
 

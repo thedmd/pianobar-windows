@@ -248,9 +248,9 @@ static void BarMainStartPlayback(BarApp_t *app)
             PIANO_RET_OK);
 
         if (!BarPlayer2Play(app->player))
-            ++app->playerErrors;
+            ++app->retries;
         else
-            app->playerErrors = 0;
+            app->retries = 0;
     }
 }
 
@@ -265,11 +265,11 @@ static void BarMainPlayerCleanup(BarApp_t *app)
 
     BarConsoleSetTitle(TITLE);
 
-    if (app->playerErrors >= app->settings.maxPlayerErrors)
+    if (app->retries >= app->settings.maxRetry)
     {
         /* don't continue playback if thread reports too many error */
         app->nextStation = NULL;
-        app->playerErrors = 0;
+        app->retries = 0;
     }
 }
 
@@ -411,7 +411,8 @@ int main(int argc, char **argv)
             app.settings.keys[BAR_KS_HELP]);
     }
 
-    HttpInit(&app.http2, app.settings.rpcHost, app.settings.rpcTlsPort);
+    HttpInit(&app.http2, app.settings.rpcHost, app.settings.rpcTlsPort,
+        app.settings.timeout);
     if (app.settings.controlProxy)
         HttpSetProxy(app.http2, app.settings.controlProxy);
 

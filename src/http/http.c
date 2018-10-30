@@ -41,7 +41,7 @@ struct _http_t {
 
 static char* HttpToString(const wchar_t* wideString, int size);
 static wchar_t* HttpToWideString(const char* string, int size);
-static bool HttpCreateConnection (http_t http);
+static bool HttpCreateConnection (http_t http, unsigned int timeOut);
 static void HttpCloseConnection (http_t http);
 static void HttpSetLastError (http_t http, const char* message);
 static void HttpSetLastErrorW (http_t http, const wchar_t* message);
@@ -75,7 +75,7 @@ static wchar_t* HttpToWideString(const char* string, int size) {
 }
 
 
-static bool HttpCreateConnection (http_t http) {
+static bool HttpCreateConnection (http_t http, unsigned int timeOut) {
 	INTERNET_PORT defaultPort = INTERNET_DEFAULT_PORT;
 
 	HttpCloseConnection (http);
@@ -89,10 +89,10 @@ static bool HttpCreateConnection (http_t http) {
 	WINHTTP_SAFE(http->session != NULL);
 
 	WinHttpSetTimeouts(http->session,
-		60 * 1000,  // DNS time-out
-		60 * 1000,  // connect time-out
-		30 * 1000,  // send time-out
-		30 * 1000); // receive time-out
+		timeOut * 1000,  // DNS time-out
+		timeOut * 1000,  // connect time-out
+		timeOut * 1000,  // send time-out
+		timeOut * 1000); // receive time-out
 
 	http->connection = WinHttpConnect(
 		http->session,
@@ -187,7 +187,7 @@ static char* HttpFormatWinHttpError (DWORD errorCode) {
 	return HttpFormatWinApiError(errorCode, NULL);
 }
 
-bool HttpInit(http_t* http, const char* endpoint, const char* securePort) {
+bool HttpInit(http_t* http, const char* endpoint, const char* securePort, unsigned int timeOut) {
 	http_t out = malloc(sizeof(struct _http_t));
 	if (!out)
 		return false;
@@ -196,7 +196,7 @@ bool HttpInit(http_t* http, const char* endpoint, const char* securePort) {
 	out->endpoint   = HttpToWideString(endpoint, -1);
 	out->securePort = HttpToWideString(securePort, -1);
 
-	if (!HttpCreateConnection (out)) {
+	if (!HttpCreateConnection (out, timeOut)) {
 		HttpDestroy (out);
 		return false;
 	}
