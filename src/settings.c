@@ -29,6 +29,7 @@ THE SOFTWARE.
 #include "config.h"
 #include "ui.h"
 #include "ui_dispatch.h"
+#include "hotkey.h"
 #include <stdlib.h>
 #include <assert.h>
 #include <memory.h>
@@ -336,6 +337,20 @@ void BarSettingsRead (BarSettings_t *settings) {
 							settings->keys[i] = BAR_KS_DISABLED;
 						} else {
 							settings->keys[i] = val[0];
+						}
+						break;
+					}
+				}
+			} else if (memcmp ("hk_act_", key, 7) == 0) {
+				size_t i;
+				char* actionKey = key + 3;
+				/* keyboard shortcuts */
+				for (i = 0; i < BAR_KS_COUNT; i++) {
+					if (streq (dispatchActions[i].configKey, actionKey)) {
+						BarHotKey_t hk = { 0 };
+						if (BarHotKeyParse(&hk, val)) {
+							hk.id = i;
+							BarHotKeyRegister(hk);
 						}
 						break;
 					}

@@ -28,6 +28,7 @@ THE SOFTWARE.
 
 #include "main.h"
 #include "console.h"
+#include "hotkey.h"
 #include "ui.h"
 #include "ui_dispatch.h"
 #include "ui_readline.h"
@@ -179,16 +180,60 @@ static void BarMainGetInitialStation (BarApp_t *app) {
 	}
 }
 
+static int BarMainHandleVirtualKey(int virtualKey, void *userData)
+{
+    BarApp_t *app = (BarApp_t *)userData;
+
+    switch (virtualKey)
+    {
+        case /*VK_VOLUME_MUTE*/         0xAD: return 0;
+        case /*VK_VOLUME_DOWN*/         0xAE: return 0;//app->settings.keys[BAR_KS_VOLDOWN];
+        case /*VK_VOLUME_UP*/           0xAF: return 0;//app->settings.keys[BAR_KS_VOLUP];
+        case /*VK_MEDIA_NEXT_TRACK*/    0xB0: return 0;//app->settings.keys[BAR_KS_SKIP];
+        case /*VK_MEDIA_PREV_TRACK*/    0xB1: return 0;
+        case /*VK_MEDIA_STOP*/          0xB2: return 0;
+        case /*VK_MEDIA_PLAY_PAUSE*/    0xB3: return 0;//app->settings.keys[BAR_KS_PLAYPAUSE];
+        case /*VK_LAUNCH_MAIL*/         0xB4: return 0;
+        case /*VK_LAUNCH_MEDIA_SELECT*/ 0xB5: return 0;
+        case /*VK_LAUNCH_APP1*/         0xB6: return 0;
+        case /*VK_LAUNCH_APP2*/         0xB7: return 0;
+        default: return 0;
+    }
+}
+
+static void BarMainHotKeyHandler(int hotKeyId, void *userData)
+{
+    if (hotKeyId == 0)
+        return;
+
+    BarApp_t *app = (BarApp_t *)userData;
+
+    BarUiDispatch(app, app->settings.keys[hotKeyId], app->curStation, app->playlist, true,
+        BAR_DC_GLOBAL);
+}
+
 /*	wait for user rl
  */
 static void BarMainHandleUserInput(BarApp_t *app)
 {
     char buf[2];
-    if (BarReadline(buf, sizeof(buf), NULL, app->rl,
-        BAR_RL_FULLRETURN | BAR_RL_NOECHO, 1) > 0)
+    size_t readSize = 0;
+
+    BarReadlineSetVirtualKeyHandler(app->rl, BarMainHandleVirtualKey, app);
+
+    readSize = BarReadline(buf, sizeof(buf), NULL, app->rl,
+        BAR_RL_FULLRETURN | BAR_RL_NOECHO, 1);
+
+    BarReadlineSetVirtualKeyHandler(app->rl, NULL, NULL);
+
+    if (readSize > 0)
     {
         BarUiDispatch(app, buf[0], app->curStation, app->playlist, true,
             BAR_DC_GLOBAL);
+    }
+    else
+    {
+        BarHotKeyPool(BarMainHotKeyHandler, app);
     }
 }
 
@@ -375,6 +420,8 @@ int main(int argc, char **argv)
 
     BarConsoleSetTitle(TITLE);
 
+    BarHotKeyInit();
+
     /* init some things */
     BarSettingsInit(&app.settings);
     BarSettingsRead(&app.settings);
@@ -432,6 +479,7 @@ int main(int argc, char **argv)
     HttpDestroy(app.http2);
     BarPlayer2Destroy(app.player);
     BarSettingsDestroy(&app.settings);
+    BarHotKeyDestroy();
     BarConsoleDestroy();
 
     return 0;
