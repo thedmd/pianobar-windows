@@ -75,6 +75,8 @@ static inline int BarReadlineEncodeUtf8 (int codePoint, char* utf8) {
 
 struct _BarReadline_t {
 	DWORD  DefaultAttr;
+	BarVirtualKeyHandler VirtualKeyHandler;
+	void *VirtualKeyHandlerUserData;
 };
 
 void BarReadlineInit(BarReadline_t* rl) {
@@ -83,6 +85,11 @@ void BarReadlineInit(BarReadline_t* rl) {
 }
 
 void BarReadlineDestroy(BarReadline_t rl) {
+}
+
+void BarReadlineSetVirtualKeyHandler(BarReadline_t rl, BarVirtualKeyHandler handler, void *ud) {
+    rl->VirtualKeyHandler = handler;
+    rl->VirtualKeyHandlerUserData = ud;
 }
 
 /*	return size of previous UTF-8 character
@@ -248,16 +255,11 @@ size_t BarReadline (char *buf, const size_t bufSize, const char *mask,
 							char encodedCodePoint[5];
 							int encodedCodePointLength;
 
-							/*
-							if (keyCode == VK_MEDIA_PLAY_PAUSE) {
-							codePoint = 'p';
-							PlaySoundA("SystemNotification", NULL, SND_ASYNC);
+							if (input->VirtualKeyHandler != NULL) {
+								int newCodePoint = input->VirtualKeyHandler(keyCode, input->VirtualKeyHandlerUserData);
+								if (newCodePoint != 0)
+									codePoint = newCodePoint;
 							}
-							else if (keyCode == VK_MEDIA_NEXT_TRACK) {
-							codePoint = 'n';
-							PlaySoundA("SystemNotification", NULL, SND_ASYNC);
-							}
-							*/
 
 							if (codePoint <= 0x1F)
 								break;

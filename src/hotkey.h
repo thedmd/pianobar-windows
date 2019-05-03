@@ -1,6 +1,6 @@
 /*
-Copyright (c) 2008-2011
-	Lars-Dominik Braun <lars@6xq.net>
+Copyright (c) 2019
+	Micha³ Cichoñ <thedmd@interia.pl>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -21,30 +21,33 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#pragma once
+# pragma once
 
 #include "config.h"
-
+#include <stdio.h>
+#include <stdarg.h>
 #include <stdbool.h>
-#include <stdlib.h>
 
 typedef enum {
-	BAR_RL_DEFAULT = 0,
-	BAR_RL_FULLRETURN = 1, /* return if buffer is full */
-	BAR_RL_NOECHO = 2, /* don't echo to stdout */
-} BarReadlineFlags_t;
+    BAR_HK_MOD_NONE = 0,
+    BAR_HK_MOD_SHIFT = 1,
+    BAR_HK_MOD_ALT = 2,
+    BAR_HK_MOD_CTRL = 4,
+    BAR_HK_MOD_WIN = 8
+} BarHotKeyMods_t;
 
-typedef struct _BarReadline_t *BarReadline_t;
+typedef struct {
+    int id;
+    char key;
+    BarHotKeyMods_t mods;
+} BarHotKey_t;
 
-typedef int (*BarVirtualKeyHandler)(int, void*);
+typedef void (*BarHotKeyHandler)(int, void *);
 
-void BarReadlineInit(BarReadline_t*);
-void BarReadlineDestroy(BarReadline_t);
-void BarReadlineSetVirtualKeyHandler(BarReadline_t, BarVirtualKeyHandler, void *);
-size_t BarReadline (char *, const size_t, const char *,
-		BarReadline_t, const BarReadlineFlags_t, int);
-size_t BarReadlineStr (char *, const size_t,
-		BarReadline_t, const BarReadlineFlags_t);
-size_t BarReadlineInt (int *, BarReadline_t);
-bool BarReadlineYesNo (bool, BarReadline_t);
+void BarHotKeyInit ();
+void BarHotKeyDestroy ();
+void BarHotKeyPool (BarHotKeyHandler, void *);
+bool BarHotKeyRegister (BarHotKey_t);
+void BarHotKeyUnregister (int);
+bool BarHotKeyParse (BarHotKey_t* result, const char* value);
 
