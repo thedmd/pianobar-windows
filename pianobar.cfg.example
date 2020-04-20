@@ -1,11 +1,14 @@
 # Uncomment the control_proxy line if you would like to set up a proxy connection for pianobar
 #control_proxy = http://<proxy_user>:<proxy_pass>@<proxy_address>:<proxy_port>
 
+# Uncomment the autoselect line to automatically start playing most recent station
+# autoselect = 1
+
 user = <pandora_user>
 password = <pandora_password>
 
-#width = 220
-#height = 60
+width = 220
+height = 60
 
 #-------------------------------------------------------------------------------
 # Uncomment these if you're using GlobalPandora.com
@@ -29,3 +32,61 @@ format_msg_time = [90m#   [97m%s[0m
 format_msg_err = [90m/!\[0m %s
 format_msg_question = [97m[?][0m %s
 format_msg_debug = [90m%s[0m
+
+
+# Available actions:
+#   act_help - show act_help
+#   act_songlove - love song
+#   act_songban - ban song
+#   act_stationaddmusic - add music to station
+#   act_stationcreate - create new station
+#   act_stationdelete - delete station
+#   act_songexplain - explain why this song is played
+#   act_stationaddbygenre - add genre station
+#   act_history - song history
+#   act_songinfo - print information about song/station
+#   act_addshared - add shared station
+#   act_songnext - next song
+#   act_songpausetoggle - pause/resume playback
+#   act_songpausetoggle2 - same as above, but allow second bind
+#   act_quit - quit
+#   act_stationrename - rename station
+#   act_stationchange - change station
+#   act_songtired - tired (ban song for 1 month)
+#   act_upcoming - upcoming songs
+#   act_stationselectquickmix - select quickmix stations
+#   act_bookmark - bookmark song/artist
+#   act_voldown - decrease volume
+#   act_volup - increase volume
+#   act_managestation - delete seeds/feedback
+#   act_songplay - resume playback
+#   act_songpause - pause playback
+#   act_volreset - reset volume
+#   act_settings - change settings
+
+
+# Hotkeys
+#
+# You can now bind hotkey to an action, for example:
+#
+#     hk_act_songlove = c + shift + ctrl
+#       or
+#     hk_act_songlove = f9
+#
+# Hotkey use format:
+#     hk_<action_name> = <key> + [modifier1] + [modifier2]...
+#
+# <key> can be any printable character on your keyboard or one of the
+# named keys:
+#     numpad0, numpad1, numpad2, numpad3, numpad4, numpad5, numpad6, numpad7,
+#     numpad8, numpad9, multiply, add, separator, subtract, decimal, divide,
+#     f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16,
+#     f17, f18, f19, f20, f21, f22, f23, f24, browser_back, browser_forward,
+#     browser_refresh, browser_stop, browser_search, browser_favorites,
+#     browser_home, volume_mute, volume_down, volume_up, media_next_track,
+#     media_prev_track, media_stop, media_play_pause, launch_mail,
+#     launch_media_select, launch_app1, launch_app2
+#
+# Example bindings:
+#hk_act_songpausetoggle = media_play_pause
+#hk_act_songnext = media_next_track
