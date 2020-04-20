@@ -208,7 +208,7 @@ size_t BarReadline (char *buf, const size_t bufSize, const char *mask,
 
 					case VK_BACK:
 						if (bufPos > 0) {
-							int moveSize;
+							size_t moveSize;
 
 							char* oldBufOut = bufOut;
 							bufOut = BarReadlinePriorUtf8(bufOut);
@@ -228,7 +228,7 @@ size_t BarReadline (char *buf, const size_t bufSize, const char *mask,
 
 					case VK_DELETE:
 						if (bufPos < bufLen) {
-							int moveSize;
+							size_t moveSize;
 
 							if (echo) {
 								BarConsoleEraseCharacter();
@@ -318,7 +318,7 @@ size_t BarReadlineStr (char *buf, const size_t bufSize,
  *	@return number of bytes read from stdin
  */
 size_t BarReadlineInt (int *ret, BarReadline_t input) {
-	int rlRet = 0;
+	size_t rlRet = 0;
 	char buf[16];
 
 	rlRet = BarReadline (buf, sizeof (buf), "0123456789", input,
