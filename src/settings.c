@@ -349,9 +349,12 @@ void BarSettingsRead (BarSettings_t *settings) {
 					if (streq (dispatchActions[i].configKey, actionKey)) {
 						BarHotKey_t hk = { 0 };
 						if (BarHotKeyParse(&hk, val)) {
-							hk.id = i;
-							BarHotKeyRegister(hk);
+							hk.id = (int)i;
+							if (!BarHotKeyRegister(hk))
+								BarUiMsg(settings, MSG_ERR, "Failed to register %s hotkey. It is probably used by another application.\n", key);
 						}
+						else
+							BarUiMsg(settings, MSG_ERR, "Failed to parse %s hotkey\n", key);
 						break;
 					}
 				}
@@ -433,7 +436,7 @@ void BarSettingsRead (BarSettings_t *settings) {
 				for (size_t i = 0; i < sizeof (mapping) / sizeof (*mapping); i++) {
 					if (streq (typeStart, mapping[i])) {
 						const char *formatPos = strstr (val, "%s");
-						
+
 						/* keep default if there is no format character */
 						if (formatPos != NULL) {
 							BarMsgFormatStr_t *format = &settings->msgFormat[i];

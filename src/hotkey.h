@@ -38,7 +38,7 @@ typedef enum {
 
 typedef struct {
     int id;
-    char key;
+    unsigned int key;
     BarHotKeyMods_t mods;
 } BarHotKey_t;
 
