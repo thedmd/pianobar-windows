@@ -111,7 +111,7 @@ static size_t BarReadlinePrevUtf8 (char *ptr) {
  *	@param accept these characters
  *	@param readline
  *	@param flags
- *	@param timeout (seconds) or -1 (no timeout)
+ *	@param timeout (milliseconds) or -1 (no timeout)
  *	@return number of bytes read from stdin
  */
 size_t BarReadline (char *buf, const size_t bufSize, const char *mask,
@@ -131,9 +131,6 @@ size_t BarReadline (char *buf, const size_t bufSize, const char *mask,
 	memset(buf, 0, bufSize);
 
 	if (timeout != INFINITE) {
-		// convert timeout to ms
-		timeout *= 1000;
-
 		// get time stamp, required for simulating non-locking input timeouts
 		timeStamp = GetTickCount();
 	}
