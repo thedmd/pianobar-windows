@@ -60,6 +60,22 @@ static char* strndup(const char *s, size_t n)
 	return (char*)memcpy(result, s, n);
 }
 
+static int BarSetEnv(const char* name, const char* value, int overwrite) {
+	char *buffer;
+	int result;
+
+	if (!overwrite && getenv(name) != NULL) {
+		return 0;
+	}
+
+	buffer = malloc (strlen (name) + strlen (value) + 2);
+	sprintf (buffer, "%s=%s", name, value);
+	result = _putenv (buffer);
+	free (buffer);
+
+	return result;
+}
+
 /*	Get current user’s home directory
  */
 static char *BarSettingsGetHome () {
@@ -161,10 +177,7 @@ void BarSettingsRead (BarSettings_t *settings) {
 	char * const userhome = BarSettingsGetHome ();
 	assert (userhome != NULL);
 	/* set xdg config path (if not set) */
-	char * const defaultxdg = malloc (strlen ("XDG_CONFIG_HOME=") + strlen (userhome) + 1);
-	sprintf (defaultxdg, "XDG_CONFIG_HOME=%s", userhome);
-	_putenv (defaultxdg);
-	free (defaultxdg);
+	BarSetEnv ("XDG_CONFIG_HOME", userhome, 0);
 
 	assert (sizeof (settings->keys) / sizeof (*settings->keys) ==
 			sizeof (dispatchActions) / sizeof (*dispatchActions));
