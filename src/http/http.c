@@ -1,4 +1,4 @@
-/*
+﻿/*
 Copyright (c) 2015
 	Michał Cichoń <thedmd@interia.pl>
 
@@ -433,6 +433,18 @@ bool HttpRequest(http_t http, PianoRequest_t * const request) {
 		}
 
 		if (succeeded && statusCode == 407) {
+			wchar_t statusText[256] = { 0 };
+			DWORD statusTextSize = sizeof(statusText) - 1;
+			WinHttpQueryHeaders(handle,
+				WINHTTP_QUERY_STATUS_TEXT,
+				WINHTTP_HEADER_NAME_BY_INDEX,
+				statusText, &statusTextSize, WINHTTP_NO_HEADER_INDEX);
+			HttpSetLastErrorW (http, statusText);
+			requestSent = false;
+			retry       = true;
+		}
+		else if (succeeded && (statusCode >= 500 && statusCode <= 599))
+		{
 			wchar_t statusText[256] = { 0 };
 			DWORD statusTextSize = sizeof(statusText) - 1;
 			WinHttpQueryHeaders(handle,
