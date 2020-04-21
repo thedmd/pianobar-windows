@@ -155,6 +155,7 @@ void BarUiMsg (const BarSettings_t *settings, const BarUiMsg_t type,
 int BarUiPianoCall (BarApp_t * const app, PianoRequestType_t type,
 		void *data, PianoReturn_t *pRet) {
 	PianoRequest_t req;
+	int netErrorRetries = 3;
 
 	memset (&req, 0, sizeof (req));
 
@@ -170,10 +171,17 @@ int BarUiPianoCall (BarApp_t * const app, PianoRequestType_t type,
 		}
 
 		if (!HttpRequest(app->http2, &req)) {
-			BarUiMsg(&app->settings, MSG_NONE, "Network error: %s\n",
+			*pRet = PIANO_RET_NETWORK_ERROR;
+			BarUiMsg(&app->settings, MSG_ERR, "Network error: %s\n",
 				HttpGetError(app->http2));
 			if (req.responseData != NULL) {
 				free(req.responseData);
+			}
+			if (--netErrorRetries > 0) {
+				/* try again */
+				*pRet = PIANO_RET_CONTINUE_REQUEST;
+				BarUiMsg (&app->settings, MSG_INFO, "Trying again... ");
+				continue;
 			}
 			PianoDestroyRequest(&req);
 			return 0;
