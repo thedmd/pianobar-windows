@@ -222,7 +222,7 @@ static void BarMainHandleUserInput(BarApp_t *app)
     BarReadlineSetVirtualKeyHandler(app->rl, BarMainHandleVirtualKey, app);
 
     readSize = BarReadline(buf, sizeof(buf), NULL, app->rl,
-        BAR_RL_FULLRETURN | BAR_RL_NOECHO, 100);
+        BAR_RL_FULLRETURN | BAR_RL_NOECHO, 1000);
 
     BarReadlineSetVirtualKeyHandler(app->rl, NULL, NULL);
 
