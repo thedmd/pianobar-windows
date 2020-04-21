@@ -270,6 +270,10 @@ const char *PianoErrorToStr (PianoReturn_t ret) {
 			return "Cipher initialization failed.";
 			break;
 
+		case PIANO_RET_NETWORK_ERROR:
+			return "Network communication failed.";
+			break;
+
 		/* pandora error messages */
 		case PIANO_RET_P_INTERNAL:
 			return "Internal error.";
