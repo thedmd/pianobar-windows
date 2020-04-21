@@ -1,6 +1,6 @@
 pianobar is a console client for the personalized web radio [Pandora](http://www.pandora.com) ported to Windows.
 
-![pianobar](https://github.com/thedmd/pianobar-windows/blob/feature/appveyor/screenshots/pianobar.png)
+![pianobar](https://user-images.githubusercontent.com/1197433/79893843-e7af9180-8404-11ea-993e-90ed37b072c1.png)
 
 # Releases
 
