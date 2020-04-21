@@ -3,7 +3,7 @@
 /* package name */
 #define PACKAGE "pianobar"
 
-#define VERSION "2020.04.20"
+#define VERSION "2020.04.20-dev"
 
 #define TITLE   "Pianobar"
 
@@ -21,6 +21,4 @@
 #ifdef _WIN32
 #define strcasecmp _stricmp
 #endif
-
-#define CURL_STATICLIB
 
