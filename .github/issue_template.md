@@ -3,9 +3,8 @@ Briefly describe your issue here.
 
 ### Your environment
 * version of pianobar
-* your Linux distribution and release version
-* ffmpeg/libav version and the flags it was compiled with (if you compiled yourself)
-* your config file
+* your system version
+* your config file (without login or password please)
 
 ### Steps to reproduce
 Tell us how to reproduce this issue.
