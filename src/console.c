@@ -154,7 +154,7 @@ void BarConsoleSetTitle(const char* title)
     TCHAR* wTitle = malloc((len + 1) * sizeof(TCHAR));
     if (NULL != wTitle)
     {
-        MultiByteToWideChar(CP_UTF8, 0, title, -1, wTitle, len);
+        MultiByteToWideChar(CP_UTF8, 0, title, -1, wTitle, (int)len);
         SetConsoleTitleW(wTitle);
 
         free(wTitle);
@@ -315,7 +315,7 @@ void BarConsoleSetClipboard(const char* text)
     if (!wideString)
         return;
 
-    MultiByteToWideChar(CP_UTF8, 0, text, -1, wideString, wideSize);
+    MultiByteToWideChar(CP_UTF8, 0, text, -1, wideString, (int)wideSize);
 
     stringHandle = GlobalAlloc(GMEM_MOVEABLE, wideBytes);
     if (!stringHandle)
@@ -357,7 +357,7 @@ void BarConsoleFlush()
 
     g_BarConsole.BufferSize = 0;
 
-    vtparse(&g_BarConsole.Parser, buffer, bufferSize);
+    vtparse(&g_BarConsole.Parser, buffer, (int)bufferSize);
 }
 
 void BarConsolePutc(char c)
@@ -387,7 +387,7 @@ static char* BarConsoleFormat(char* buffer, size_t buffer_size, const char* form
         size_t new_buffer_size = buffer_size * 3 / 2;
         if (new_buffer_size < buffer_size)
         {   // handle overflow
-            chars_writen = buffer_size;
+            chars_writen = (int)buffer_size;
             break;
         }
 

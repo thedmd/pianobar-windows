@@ -85,7 +85,7 @@ char* BarStrFormat (const char* format, va_list args) {
 	while ((chars_writen = _vsnprintf(buffer, buffer_size - 1, format, args)) < 0) {
 		size_t new_buffer_size = buffer_size * 3 / 2;
 		if (new_buffer_size < buffer_size) { /* handle overflow */
-			chars_writen = buffer_size;
+			chars_writen = (int)buffer_size;
 			break;
 		}
 

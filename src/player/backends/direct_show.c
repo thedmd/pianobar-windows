@@ -326,7 +326,7 @@ static bool DSPlayerOpen(player2_t player, const char* url)
         goto done;
 
     urlSize = strlen(url);
-    result = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, url, urlSize, NULL, 0);
+    result = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, url, (int)urlSize, NULL, 0);
     wideUrl = malloc((result + 1) * sizeof(wchar_t));
     if (!wideUrl)
     {
@@ -335,7 +335,7 @@ static bool DSPlayerOpen(player2_t player, const char* url)
     }
     memset(wideUrl, 0, (result + 1) * sizeof(wchar_t));
 
-    MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, url, urlSize, wideUrl, result);
+    MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, url, (int)urlSize, wideUrl, result);
 
     hr = IGraphBuilder_AddSourceFilter(player->graph, wideUrl, NULL, &source);
     if (FAILED(hr))

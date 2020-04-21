@@ -42,7 +42,7 @@ PianoReturn_t PianoCryptInit (PianoCipher_t* h, const char * const key,
 		return PIANO_RET_OUT_OF_MEMORY;
 	}
 
-	Blowfish_Init (&result->cipher, (unsigned char*)key, size);
+	Blowfish_Init (&result->cipher, (unsigned char*)key, (int)size);
 
 	*h = result;
 
@@ -54,12 +54,12 @@ void PianoCryptDestroy (PianoCipher_t h) {
 }
 
 static inline bool PianoCryptDecrypt (PianoCipher_t h, unsigned char* output, size_t size) {
-	return Blowfish_DecryptData (&h->cipher, (uint32_t*)output, (uint32_t*)output, size) == BLOWFISH_OK;
+	return Blowfish_DecryptData (&h->cipher, (uint32_t*)output, (uint32_t*)output, (int)size) == BLOWFISH_OK;
 }
 
 static inline bool PianoCryptEncrypt (PianoCipher_t h, unsigned char* output, size_t size)
 {
-	return Blowfish_EncryptData (&h->cipher, (uint32_t*)output, (uint32_t*)output, size) == BLOWFISH_OK;
+	return Blowfish_EncryptData (&h->cipher, (uint32_t*)output, (uint32_t*)output, (int)size) == BLOWFISH_OK;
 }
 
 /*	decrypt hex-encoded, blowfish-crypted string: decode 2 hex-encoded blocks,

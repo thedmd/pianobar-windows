@@ -230,14 +230,14 @@ MediaPlayer::~MediaPlayer()
     assert(m_MediaSession == nullptr);
 
     // When MediaPlayer calls IMediaEventGenerator::BeginGetEvent on the
-    // media session, it causes the media session to hold a reference 
+    // media session, it causes the media session to hold a reference
     // count on the MediaPlayer.
 
     // This creates a circular reference count between MediaPlayer and the
     // media session. Calling Shutdown breaks the circular reference
     // count.
 
-    // If CreateInstance fails, the application will not call 
+    // If CreateInstance fails, the application will not call
     // Shutdown. To handle that case, call Shutdown in the destructor.
     Shutdown();
 }
@@ -325,10 +325,10 @@ HRESULT MediaPlayer::CreateSession()
 
 HRESULT MediaPlayer::CloseSession()
 {
-    //  The IMFMediaSession::Close method is asynchronous, but the 
+    //  The IMFMediaSession::Close method is asynchronous, but the
     //  CPlayer::CloseSession method waits on the MESessionClosed mediaEvent.
-    //  
-    //  MESessionClosed is guaranteed to be the last mediaEvent that the 
+    //
+    //  MESessionClosed is guaranteed to be the last mediaEvent that the
     //  media session fires.
 
     HRESULT hr = S_OK;
@@ -567,7 +567,7 @@ HRESULT MediaPlayer::ApplyReplayGain(float replayGain)
             hr = m_StreamAudioVolume->SetChannelVolume(i, volume);
 
         return hr;
-    }   
+    }
     else
         return E_FAIL;
 }
@@ -764,20 +764,20 @@ HRESULT STDMETHODCALLTYPE MediaPlayer::Invoke(IMFAsyncResult* asyncResult)
     SAFE_CALL(mediaEvent->GetType(&eventType));
 
     if (eventType == MESessionClosed)
-        // The session was closed. 
-        // The application is waiting on the m_CloseEvent mediaEvent handle. 
+        // The session was closed.
+        // The application is waiting on the m_CloseEvent mediaEvent handle.
         SetEvent(m_CloseEvent);
     else
         // For all other events, get the next mediaEvent in the queue.
         SAFE_CALL(m_MediaSession->BeginGetEvent(this, nullptr));
 
-    // Check the application state. 
+    // Check the application state.
 
-    // If a call to IMFMediaSession::Close is pending, it means the 
+    // If a call to IMFMediaSession::Close is pending, it means the
     // application is waiting on the m_CloseEvent mediaEvent and
-    // the application's message loop is blocked. 
+    // the application's message loop is blocked.
 
-    // Otherwise, post a private window message to the application. 
+    // Otherwise, post a private window message to the application.
     if (m_State != Closing)
     {
         // Leave a reference count on the mediaEvent.
@@ -802,15 +802,15 @@ HRESULT STDMETHODCALLTYPE MediaPlayer::Invoke(IMFAsyncResult* asyncResult)
 //
 //    // Use the source resolver to create the media source.
 //
-//    // Note: For simplicity this sample uses the synchronous method to create 
+//    // Note: For simplicity this sample uses the synchronous method to create
 //    // the media source. However, creating a media source can take a noticeable
-//    // amount of time, especially for a network source. For a more responsive 
+//    // amount of time, especially for a network source. For a more responsive
 //    // UI, use the asynchronous BeginCreateObjectFromURL method.
 //    SAFE_CALL(sourceResolver->CreateObjectFromURL(
 //        url,                        // URL of the source.
 //        MF_RESOLUTION_MEDIASOURCE,  // Create a source object.
 //        NULL,                       // Optional property store.
-//        &objectType,                // Receives the created object type. 
+//        &objectType,                // Receives the created object type.
 //        &source));                  // Receives a pointer to the media source.
 //
 //    // Get the IMFMediaSource interface from the media source.
@@ -839,7 +839,7 @@ static HRESULT CreateMediaSinkActivate(IMFStreamDescriptor* streamDescriptor, IM
         // Create the audio renderer.
         SAFE_CALL(g_MF.MFCreateAudioRendererActivate(&activate));
     }
-    else // Unknown stream type. 
+    else // Unknown stream type.
     {
         SAFE_CALL(E_FAIL);
         // Optionally, you could deselect this stream instead of failing.
@@ -892,8 +892,8 @@ static HRESULT AddOutputNode(IMFTopology* topology, IMFActivate* activate, DWORD
 //
 // For each stream, this function does the following:
 //
-//   1. Creates a source node associated with the stream. 
-//   2. Creates an output node for the renderer. 
+//   1. Creates a source node associated with the stream.
+//   2. Creates an output node for the renderer.
 //   3. Connects the two nodes.
 //
 // The media session will add any decoders that are needed.
@@ -1017,12 +1017,12 @@ extern "C" bool WMFPlayerOpen(player2_t player, const char* url)
     if (urlLength == 0)
         return false;
 
-    int bufferLength = ::MultiByteToWideChar(CP_UTF8, 0, url, urlLength, nullptr, 0);
+    int bufferLength = ::MultiByteToWideChar(CP_UTF8, 0, url, (int)urlLength, nullptr, 0);
     if (bufferLength == 0)
         return false;
 
     wchar_t* buffer = new wchar_t[bufferLength + 1];
-    int result = ::MultiByteToWideChar(CP_UTF8, 0, url, urlLength, buffer, bufferLength);
+    int result = ::MultiByteToWideChar(CP_UTF8, 0, url, (int)urlLength, buffer, bufferLength);
     if (result == 0)
     {
         delete [] buffer;
