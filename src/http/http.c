@@ -520,11 +520,14 @@ bool HttpRequest(http_t http, PianoRequest_t * const request) {
 		}
 
 		if (bytesLeft > 0)
-			HttpSetLastError (http, "Maximum retries count exceeded");
+			HttpSetLastError (http, "Incomplete response data");
 	}
 
 	if (retryLimit == 0)
+	{
+		HttpSetLastError (http, "Maximum retries count exceeded");
 		goto done;
+	}
 
 	complete = true;
 
