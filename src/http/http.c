@@ -1,4 +1,4 @@
-﻿/*
+/*
 Copyright (c) 2015
 	Michał Cichoń <thedmd@interia.pl>
 
@@ -39,8 +39,8 @@ struct _http_t {
 	char*			error;
 };
 
-static char* HttpToString(const wchar_t* wideString, int size);
-static wchar_t* HttpToWideString(const char* string, int size);
+static char* HttpToString(const wchar_t* wideString, size_t size);
+static wchar_t* HttpToWideString(const char* string, size_t size);
 static bool HttpCreateConnection (http_t http, unsigned int timeOut);
 static void HttpCloseConnection (http_t http);
 static void HttpSetLastError (http_t http, const char* message);
@@ -53,23 +53,23 @@ static void HttpClearProxy (http_t http);
 # define WINHTTP_SAFE(condition) do { if (condition) break; HttpSetLastErrorFromWinHttp (http); return false; } while (false)
 # define WINHTTP_SAFE_DONE(condition) do { if (condition) break; HttpSetLastErrorFromWinHttp (http); goto done; } while (false)
 
-static char* HttpToString(const wchar_t* wideString, int size) {
-	int utfSize = WideCharToMultiByte(CP_UTF8, 0, wideString, size, NULL, 0, NULL, NULL);
+static char* HttpToString(const wchar_t* wideString, size_t size) {
+	int utfSize = WideCharToMultiByte(CP_UTF8, 0, wideString, (int)size, NULL, 0, NULL, NULL);
 	char* utfMessage = malloc(utfSize + 1);
 	if (utfMessage)	{
 		utfMessage[utfSize] = 0;
-		WideCharToMultiByte(CP_UTF8, 0, wideString, size, utfMessage, utfSize, NULL, NULL);
+		WideCharToMultiByte(CP_UTF8, 0, wideString, (int)size, utfMessage, utfSize, NULL, NULL);
 	}
 	return utfMessage;
 }
 
-static wchar_t* HttpToWideString(const char* string, int size) {
-	int wideSize = MultiByteToWideChar(CP_UTF8, 0, string, size, NULL, 0);
+static wchar_t* HttpToWideString(const char* string, size_t size) {
+	int wideSize = MultiByteToWideChar(CP_UTF8, 0, string, (int)size, NULL, 0);
 	int wideBytes = (wideSize + 1) * sizeof(wchar_t);
 	wchar_t* wideMessage = malloc(wideBytes);
 	if (wideMessage) {
 		wideMessage[wideSize] = 0;
-		MultiByteToWideChar(CP_UTF8, 0, string, size, wideMessage, wideSize);
+		MultiByteToWideChar(CP_UTF8, 0, string, (int)size, wideMessage, wideSize);
 	}
 	return wideMessage;
 }
@@ -289,7 +289,7 @@ bool HttpSetProxy (http_t http, const char* url) {
 	urlComponents.dwPasswordLength = -1;
 
 	wideUrl = HttpToWideString(url, -1);
-	if (WinHttpCrackUrl(wideUrl, wcslen(wideUrl), 0, &urlComponents)) {
+	if (WinHttpCrackUrl(wideUrl, (DWORD)wcslen(wideUrl), 0, &urlComponents)) {
 		if (urlComponents.lpszUserName && urlComponents.dwUserNameLength > 0) {
 			wideUsername = wcsdup(urlComponents.lpszUserName);
 			wideUsername[urlComponents.dwUserNameLength] = 0;
@@ -307,7 +307,7 @@ bool HttpSetProxy (http_t http, const char* url) {
 	urlComponents.dwHostNameLength  = -1;
 	urlComponents.dwUrlPathLength   = -1;
 
-	if (!WinHttpCrackUrl(wideUrl, wcslen(wideUrl), 0, &urlComponents)) {
+	if (!WinHttpCrackUrl(wideUrl, (DWORD)wcslen(wideUrl), 0, &urlComponents)) {
 		free(wideUsername);
 		free(widePassword);
 		return false;
@@ -410,8 +410,8 @@ bool HttpRequest(http_t http, PianoRequest_t * const request) {
 				WINHTTP_NO_ADDITIONAL_HEADERS,
 				0,
 				request->postData,
-				postDataSize,
-				postDataSize,
+				(DWORD)postDataSize,
+				(DWORD)postDataSize,
 				0);
 
 			if (succeeded)
