@@ -304,6 +304,20 @@ void BarSettingsRead (BarSettings_t *settings) {
 				*valend = '\0';
 				--valend;
 			}
+			
+			/* fix errors with leading/trailing space on user/password fields */
+			if (streq("user", key) || streq("password", key)) {
+				/* trim leading space */
+				while (isspace((unsigned char)*val)) val++;
+
+				/* trim trailing space */
+				char* end;
+				end = val + strlen(val) - 1;
+				while (end > val && isspace((unsigned char)*end)) end--;
+				
+				/* write new null terminator */
+				end[1] = '\0';
+			}			
 
 			if (streq ("control_proxy", key)) {
 				settings->controlProxy = strdup (val);
