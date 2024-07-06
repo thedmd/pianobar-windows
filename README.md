@@ -19,6 +19,7 @@ Older releases can be found at [GitHub Release page](https://github.com/thedmd/p
 * Configure keybindings.
 * last.fm scrobbling support (external application)
 * Proxy support for listeners outside the USA.
+* Execute eventcmd to script notification for song being played
 
 ### Source Code
 

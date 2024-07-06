@@ -32,6 +32,8 @@ THE SOFTWARE.
 #include <assert.h>
 #include <stdio.h>
 
+#define streq(a, b) (strcmp (a, b) == 0)
+
 typedef int (*BarSortFunc_t) (const void *, const void *);
 
 /*	is string a number?
@@ -718,6 +720,47 @@ size_t BarUiListSongs (const BarApp_t * const app,
 	return i;
 }
 
+// Function to replace a string with another 
+// string 
+char* replaceWord(const char* s, const char* oldW,
+	const char* newW)
+{
+	char* result;
+	int i, cnt = 0;
+	int newWlen = strlen(newW);
+	int oldWlen = strlen(oldW);
+
+	// Counting the number of times old word 
+	// occur in the string 
+	for (i = 0; s[i] != '\0'; i++) {
+		if (strstr(&s[i], oldW) == &s[i]) {
+			cnt++;
+
+			// Jumping to index after the old word. 
+			i += oldWlen - 1;
+		}
+	}
+
+	// Making new string of enough length 
+	result = (char*)malloc(i + cnt * (newWlen - oldWlen) + 1);
+
+	i = 0;
+	while (*s) {
+		// compare the substring with the result 
+		if (strstr(s, oldW) == s) {
+			strcpy(&result[i], newW);
+			i += newWlen;
+			s += oldWlen;
+		}
+		else
+			result[i++] = *s++;
+	}
+
+	result[i] = '\0';
+	return result;
+}
+
+
 /*	Excute external event handler
  *	@param settings containing the cmdline
  *	@param event type
@@ -729,102 +772,102 @@ void BarUiStartEventCmd (const BarSettings_t *settings, const char *type,
 		const PianoStation_t *curStation, const PianoSong_t *curSong,
 		const player2_t * const player, PianoStation_t *stations,
 		PianoReturn_t pRet) {
-	//pid_t chld;
-	//int pipeFd[2];
 
-	//if (settings->eventCmd == NULL) {
+	if (settings->eventCmd == NULL) {
 		/* nothing to do... */
 		return;
-	//}
+	}
 
-	//if (pipe (pipeFd) == -1) {
-	//	BarUiMsg (settings, MSG_ERR, "Cannot create eventcmd pipe. (%s)\n", strerror (errno));
-	//	return;
-	//}
+	if (settings->subscribedEvents == NULL) {
+		/* no subscribed events... */
+		return;
+	}
 
-	//chld = fork ();
-	//if (chld == 0) {
-	//	/* child */
-	//	close (pipeFd[1]);
-	//	dup2 (pipeFd[0], fileno (stdin));
-	//	execl (settings->eventCmd, settings->eventCmd, type, (char *) NULL);
-	//	BarUiMsg (settings, MSG_ERR, "Cannot start eventcmd. (%s)\n", strerror (errno));
-	//	close (pipeFd[0]);
-	//	exit (1);
-	//} else if (chld == -1) {
-	//	BarUiMsg (settings, MSG_ERR, "Cannot fork eventcmd. (%s)\n", strerror (errno));
-	//} else {
-	//	/* parent */
-	//	int status;
-	//	PianoStation_t *songStation = NULL;
-	//	FILE *pipeWriteFd;
+	char* subscribedEvents = strdup(settings->subscribedEvents);
+	int subscribed = 0;
 
-	//	close (pipeFd[0]);
+	// Returns first subscribedEvent 
+	char* subscribedEvent = strtok(subscribedEvents, ",");
 
-	//	pipeWriteFd = fdopen (pipeFd[1], "w");
+	// Keep evaluating subscribedEvents while one of the
+	// delimiters present in str[].
+	while (subscribedEvent != NULL)
+	{
+		if (streq(type, subscribedEvent)) {
+			subscribed = 1;
+		}
+		subscribedEvent = strtok(NULL, ",");
+	}
 
-	//	if (curSong != NULL && stations != NULL && curStation != NULL &&
-	//			curStation->isQuickMix) {
-	//		songStation = PianoFindStationById (stations, curSong->stationId);
-	//	}
 
-	//	fprintf (pipeWriteFd,
-	//			"artist=%s\n"
-	//			"title=%s\n"
-	//			"album=%s\n"
-	//			"coverArt=%s\n"
-	//			"stationName=%s\n"
-	//			"songStationName=%s\n"
-	//			"pRet=%i\n"
-	//			"pRetStr=%s\n"
-	//			"wRet=%i\n"
-	//			"wRetStr=%s\n"
-	//			"songDuration=%u\n"
-	//			"songPlayed=%u\n"
-	//			"rating=%i\n"
-	//			"detailUrl=%s\n",
-	//			curSong == NULL ? "" : curSong->artist,
-	//			curSong == NULL ? "" : curSong->title,
-	//			curSong == NULL ? "" : curSong->album,
-	//			curSong == NULL ? "" : curSong->coverArt,
-	//			curStation == NULL ? "" : curStation->name,
-	//			songStation == NULL ? "" : songStation->name,
-	//			pRet,
-	//			PianoErrorToStr (pRet),
-	//			wRet,
-	//			curl_easy_strerror (wRet),
-	//			player->songDuration,
-	//			player->songPlayed,
-	//			curSong == NULL ? PIANO_RATE_NONE : curSong->rating,
-	//			curSong == NULL ? "" : curSong->detailUrl
-	//			);
+	if (subscribed == 0) {
+		BarUiMsg(settings, MSG_DEBUG, "Not subscribed to the %s event, not firing event_command.\n", type);
+		return;
+	} else {
+		BarUiMsg(settings, MSG_DEBUG, "Subscribed to the %s event, firing event_command.\n", type);
+	}
 
-	//	if (stations != NULL) {
-	//		/* send station list */
-	//		PianoStation_t **sortedStations = NULL;
-	//		size_t stationCount;
-	//		sortedStations = BarSortedStations (stations, &stationCount,
-	//				settings->sortOrder);
-	//		assert (sortedStations != NULL);
+	char* replacement1 = NULL;
+	char* replacement2 = NULL;
+	char* replacement3 = NULL;
+	char* replacement4 = NULL;
+	char* cmd = NULL;
 
-	//		fprintf (pipeWriteFd, "stationCount=%zd\n", stationCount);
+	replacement1 = replaceWord(settings->eventCmd, "$song", curSong == NULL ? "" : curSong->title);
+	replacement2 = replaceWord(replacement1, "$artist", curSong == NULL ? "" : curSong->artist);
+	replacement3 = replaceWord(replacement2, "$album", curSong == NULL ? "" : curSong->album);
+	replacement4 = replaceWord(replacement3, "$coverArt", curSong == NULL ? "" : curSong->coverArt);
+	cmd = replaceWord(replacement4, "$station", curStation == NULL ? "" : curStation->name);
+	free(replacement1);
+	free(replacement2);
+	free(replacement3);
+	free(replacement4);
 
-	//		for (size_t i = 0; i < stationCount; i++) {
-	//			const PianoStation_t *currStation = sortedStations[i];
-	//			fprintf (pipeWriteFd, "station%zd=%s\n", i,
-	//					currStation->name);
-	//		}
-	//		free (sortedStations);
-	//	} else {
-	//		const char * const msg = "stationCount=0\n";
-	//		fwrite (msg, sizeof (*msg), strlen (msg), pipeWriteFd);
-	//	}
-	//
-	//	/* closes pipeFd[1] as well */
-	//	fclose (pipeWriteFd);
-	//	/* wait to get rid of the zombie */
-	//	waitpid (chld, &status, 0);
-	//}
+	BarUiMsg(settings, MSG_DEBUG, "Raw command to run: %s\n", cmd);
+
+	wchar_t wcmd[10000];
+	mbstowcs(wcmd, cmd, 10000);
+
+	BarUiMsg(settings, MSG_DEBUG, 
+		"Variables:\nartist=%s\nalbum=%s\ntitle=%s\ncoverArt=%s\nstationName=%s\n",
+		curSong == NULL ? "" : curSong->artist,
+		curSong == NULL ? "" : curSong->album,
+		curSong == NULL ? "" : curSong->title, 
+		curSong == NULL ? "" : curSong->coverArt,
+		curStation == NULL ? "" : curStation->name
+	);
+
+	STARTUPINFO si;
+	PROCESS_INFORMATION pi;
+
+	ZeroMemory(&si, sizeof(si));
+	si.cb = sizeof(si);
+	ZeroMemory(&pi, sizeof(pi));
+
+	// Start the child process. 
+	if (!CreateProcessW(NULL,   // No module name (use command line)
+		wcmd,        // Command line
+		NULL,           // Process handle not inheritable
+		NULL,           // Thread handle not inheritable
+		FALSE,          // Set handle inheritance to FALSE
+		0,              // No creation flags
+		NULL,           // Use parent's environment block
+		NULL,           // Use parent's starting directory 
+		&si,            // Pointer to STARTUPINFO structure
+		&pi)           // Pointer to PROCESS_INFORMATION structure
+		)
+	{
+		printf("CreateProcess failed (%d).\n", GetLastError());
+		return;
+	}
+	free(cmd);
+
+	// Wait until child process exits.
+	//WaitForSingleObject(pi.hProcess, INFINITE);
+
+	// Close process and thread handles. 
+	CloseHandle(pi.hProcess);
+	CloseHandle(pi.hThread);
 }
 
 /*	prepend song to history

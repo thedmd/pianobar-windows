@@ -90,3 +90,18 @@ format_msg_debug = [90m%s[0m
 # Example bindings:
 #hk_act_songpausetoggle = media_play_pause
 #hk_act_songnext = media_next_track
+
+
+# events that should fire the event_command (comma separated);
+# current possible events are:
+# userlogin,usergetstations,stationfetchplaylist,songstart,songfinish
+#
+# note, only songstart and songfinish have all the variable substitution support, other events are not well-tested
+#
+# example usage: 
+# subscribed_events = songstart,songfinish
+subscribed_events = songstart,songfinish
+
+# you can pass variable substitution to event_command to get the current songs.
+# Variables supported: $artist, $album, $song, and $station
+event_command = C:\Users\Jonathan\bin\wsl-notify-send.exe --appId "Pianobar" --category "$station" "$artist `n$album `n$song" -i "$coverArt"

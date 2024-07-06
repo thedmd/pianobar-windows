@@ -3,9 +3,10 @@
 /* package name */
 #define PACKAGE "pianobar"
 
-#define VERSION "2022.10.09-dev"
+#define VERSION "2024.07.04-dev"
 
 #define TITLE   "Pianobar"
+
 
 /* Visual C++ name restrict differently */
 #ifdef _WIN32

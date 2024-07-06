@@ -26,7 +26,7 @@ THE SOFTWARE.
 #include "config.h"
 #include <stdio.h>
 #include <stdarg.h>
-#include <windows.h>
+#include <Windows.h>
 
 void BarConsoleInit ();
 void BarConsoleDestroy ();

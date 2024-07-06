@@ -143,6 +143,7 @@ void BarSettingsDestroy (BarSettings_t *settings) {
 	free (settings->password);
 	free (settings->passwordCmd);
 	free (settings->autostartStation);
+	free (settings->subscribedEvents);
 	free (settings->eventCmd);
 	free (settings->loveIcon);
 	free (settings->banIcon);
@@ -381,9 +382,12 @@ void BarSettingsRead (BarSettings_t *settings) {
 				} else if (streq (val, "high")) {
 					settings->audioQuality = PIANO_AQ_HIGH;
 				}
-			} else if (streq ("autostart_station", key)) {
-				free (settings->autostartStation);
-				settings->autostartStation = strdup (val);
+			} else if (streq("autostart_station", key)) {
+				free(settings->autostartStation);
+				settings->autostartStation = strdup(val);
+			} else if (streq("subscribed_events", key)) {
+				free(settings->subscribedEvents);
+				settings->subscribedEvents = strdup(val);
 			} else if (streq ("event_command", key)) {
 				settings->eventCmd = BarSettingsExpandTilde (val, userhome);
 			} else if (streq ("history", key)) {
